@@ -1882,7 +1882,7 @@ public partial class FormMain
                     {
                         Assistant.AssistantPages.FrmChatLeft ??= new Assistant.PageChatLeft();
                         Assistant.AssistantPages.FrmChatRight ??= new Assistant.PageChatRight();
-                        PageChangeAnim(Assistant.AssistantPages.FrmChatLeft, Assistant.AssistantPages.FrmChatRight);
+                        PageChangeAnim(Assistant.AssistantPages.FrmChatLeft!, Assistant.AssistantPages.FrmChatRight!);
                         break;
                     }
                 case PageType.GameLog: // 实时日志

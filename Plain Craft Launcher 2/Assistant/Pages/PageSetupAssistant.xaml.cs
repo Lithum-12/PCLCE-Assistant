@@ -19,7 +19,7 @@ public partial class PageSetupAssistant
         CheckBypass.SetChecked(Config.Assistant.AllowRestrictedFeatures, false);
         TextBaseUrl.Text = Config.Assistant.ApiBaseUrl;
         TextModel.Text = Config.Assistant.ModelName;
-        TextApiKey.Text = Config.Assistant.ApiKey;
+        TextApiKey.Password = Config.Assistant.ApiKey;
     }
 
     private void CheckEnabled_OnChange(object senderRaw, bool user)
@@ -39,7 +39,7 @@ public partial class PageSetupAssistant
     {
         Config.Assistant.ApiBaseUrl = TextBaseUrl.Text.Trim();
         Config.Assistant.ModelName = TextModel.Text.Trim();
-        Config.Assistant.ApiKey = TextApiKey.Text.Trim();
+        Config.Assistant.ApiKey = TextApiKey.Password.Trim();
         HintService.Hint(Lang.Text("Setup.Assistant.Saved"), HintType.Info);
     }
 }

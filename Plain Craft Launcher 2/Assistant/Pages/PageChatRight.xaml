@@ -18,7 +18,7 @@
             </StackPanel>
         </local:MyScrollViewer>
         <StackPanel Grid.Row="1" Margin="20,0,20,18">
-            <local:MyTextBox x:Name="TextInput" HintText="{DynamicResource Assistant.Chat.InputHint}" AcceptsReturn="True"
+            <local:MyTextBox x:Name="TextChatInput" HintText="{DynamicResource Assistant.Chat.InputHint}" AcceptsReturn="True"
                              TextWrapping="Wrap" MinHeight="46" MaxHeight="140" VerticalContentAlignment="Top"
                              Padding="10,8" KeyDown="TextInput_KeyDown" />
             <local:MyButton x:Name="BtnSend" Text="{DynamicResource Assistant.Chat.Send}" Width="96" Height="34"

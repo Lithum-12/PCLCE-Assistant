@@ -26,9 +26,9 @@ public partial class PageChatRight
 
     private void SendCurrentInput()
     {
-        var input = TextInput.Text?.Trim();
+        var input = TextChatInput.Text?.Trim();
         if (string.IsNullOrEmpty(input)) return;
-        TextInput.Clear();
+        TextChatInput.Clear();
         TextEmpty.Visibility = Visibility.Collapsed;
         AppendBubble("Assistant.Chat.RoleUser", input);
 

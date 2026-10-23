@@ -22,7 +22,7 @@
                     <TextBlock Text="{DynamicResource Setup.Assistant.Model.Tip}" FontSize="12" Opacity="0.6"
                                TextWrapping="Wrap" Margin="0,0,0,14" />
                     <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey}" FontSize="13" Margin="0,0,0,5" />
-                    <local:MyTextBox x:Name="TextApiKey" Margin="0,0,0,4" PasswordChar="●" />
+                    <PasswordBox x:Name="TextApiKey" Margin="0,0,0,4" />
                     <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey.Tip}" FontSize="12" Opacity="0.6"
                                TextWrapping="Wrap" Margin="0,0,0,14" />
                     <local:MyButton x:Name="BtnSave" Width="96" Height="34" HorizontalAlignment="Left"

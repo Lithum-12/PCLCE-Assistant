@@ -19,9 +19,9 @@ internal static class AssistantHooks
 
     private static void InstallStrings()
     {
-        if (Lifecycle.CurrentApplication is { } early)
+        if (Lifecycle.CurrentApplication is not null)
         {
-            ApplyStrings(early);
+            ApplyStrings(Lifecycle.CurrentApplication.Resources);
             return;
         }
 
@@ -32,14 +32,14 @@ internal static class AssistantHooks
         {
             if (Lifecycle.CurrentApplication is null) return;
             Lifecycle.StateChanged -= OnState;
-            ApplyStrings(Lifecycle.CurrentApplication);
+            ApplyStrings(Lifecycle.CurrentApplication.Resources);
         }
     }
 
-    private static void ApplyStrings(Application app)
+    private static void ApplyStrings(ResourceDictionary resources)
     {
         var dict = AssistantStrings.IsChineseUi() ? AssistantStrings.Zh : AssistantStrings.En;
-        foreach (var (key, value) in dict) app.Resources[key] = value;
+        foreach (var (key, value) in dict) resources[key] = value;
     }
 }
 
