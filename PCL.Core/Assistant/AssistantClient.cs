@@ -23,9 +23,23 @@ public sealed class AssistantException(string message, string? detail = null) : 
 /// </summary>
 public static class AssistantClient
 {
+    /// <summary>
+    /// 用户常把 https:// 省掉，这里统一补齐并去掉尾部斜杠。
+    /// </summary>
+    public static string NormalizeBaseUrl(string? raw)
+    {
+        var text = (raw ?? "").Trim();
+        if (text.Length == 0) return "";
+        if (!text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+            !text.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            text = "https://" + text;
+        return text.TrimEnd('/');
+    }
+
     public static async Task<string> ChatAsync(IEnumerable<AssistantMessage> messages, string baseUrl, string model,
         string apiKey, IProgress<string>? onDelta, CancellationToken token)
     {
+        baseUrl = NormalizeBaseUrl(baseUrl);
         if (!Uri.IsWellFormedUriString(baseUrl, UriKind.Absolute))
             throw new AssistantException("服务地址无效", baseUrl);
         if (string.IsNullOrWhiteSpace(model))

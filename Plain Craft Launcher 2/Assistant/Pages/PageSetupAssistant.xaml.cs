@@ -70,7 +70,7 @@ public partial class PageSetupAssistant
 
     private void BtnSave_Click(object sender, MouseButtonEventArgs e)
     {
-        Config.Assistant.ApiBaseUrl = TextBaseUrl.Text.Trim();
+        Config.Assistant.ApiBaseUrl = AssistantClient.NormalizeBaseUrl(TextBaseUrl.Text);
         Config.Assistant.ModelName = TextModel.Text.Trim();
         Config.Assistant.ApiKey = TextApiKey.Password.Trim();
         HintService.Hint(Lang.Text("Setup.Assistant.Saved"), HintType.Info);
