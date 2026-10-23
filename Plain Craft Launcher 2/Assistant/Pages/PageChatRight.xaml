@@ -32,15 +32,17 @@
                         <svgIcon:SvgIcon Width="14" Height="14" Margin="14,14,0,0" HorizontalAlignment="Left"
                                          VerticalAlignment="Top" IsHitTestVisible="False"
                                          IconBrush="{DynamicResource ColorBrush1}" Icon="lucide/sparkles" />
-                        <local:MyButton x:Name="BtnSend" Width="60" Height="28" Margin="0,0,6,0" ColorType="Highlight"
+                        <local:MyButton x:Name="BtnSend" Width="60" Height="28" Margin="0,0,12,0" ColorType="Highlight"
                                         HorizontalAlignment="Right" VerticalAlignment="Center"
                                         Text="{DynamicResource Assistant.Chat.Send}" Click="BtnSend_Click" />
                     </Grid>
-                    <Grid Margin="14,0,14,11">
+                    <Grid Margin="12,0,12,12" Height="30">
                         <local:MyIconTextButton x:Name="BtnInstance" HorizontalAlignment="Left"
+                                                VerticalAlignment="Center"
                                                 Text="{DynamicResource Assistant.Chat.SelectInstance}"
                                                 SvgIcon="lucide/package" Click="BtnInstance_Click" />
-                        <local:MyComboBox x:Name="ComboModel" Width="200" HorizontalAlignment="Right"
+                        <local:MyComboBox x:Name="ComboModel" Width="220" HorizontalAlignment="Right"
+                                          VerticalAlignment="Center"
                                           SelectionChanged="ComboModel_SelectionChanged" />
                     </Grid>
                 </StackPanel>
