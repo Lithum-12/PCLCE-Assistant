@@ -8,4 +8,5 @@ internal static class AssistantPages
     internal static PageChatLeft? FrmChatLeft;
     internal static PageChatRight? FrmChatRight;
     internal static PageSetupAssistant? FrmSetupAssistant;
+    internal static PageAssistantHome? FrmAssistantHome;
 }

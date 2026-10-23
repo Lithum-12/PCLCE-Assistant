@@ -41,7 +41,7 @@
                                                 VerticalAlignment="Center"
                                                 Text="{DynamicResource Assistant.Chat.SelectInstance}"
                                                 SvgIcon="lucide/package" Click="BtnInstance_Click" />
-                        <local:MyComboBox x:Name="ComboModel" Width="220" HorizontalAlignment="Right"
+                        <local:MyComboBox x:Name="ComboModel" Width="220" DropDownWidthSync="False" HorizontalAlignment="Right"
                                           VerticalAlignment="Center"
                                           SelectionChanged="ComboModel_SelectionChanged" />
                     </Grid>

@@ -30,6 +30,14 @@ public partial class PageChatRight
             _ => ModBase.RunInUi(RefreshInstance)));
     }
 
+    public void NewConversation()
+    {
+        _history.Clear();
+        PanMessages.Children.Clear();
+        PanMessages.Children.Add(TextEmpty);
+        TextEmpty.Visibility = Visibility.Visible;
+    }
+
     private void BtnInstance_Click(object sender, ModBase.RouteEventArgs e)
     {
         ModMain.frmMain?.PageChange(FormMain.PageType.InstanceSelect);

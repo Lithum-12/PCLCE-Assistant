@@ -31,7 +31,7 @@
 
                     <TextBlock Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0"
                                Text="{DynamicResource Setup.Assistant.Provider}" />
-                    <local:MyComboBox x:Name="ComboProvider" Grid.Row="2" Grid.Column="1"
+                    <local:MyComboBox x:Name="ComboProvider" DropDownWidthSync="False" Grid.Row="2" Grid.Column="1"
                                       SelectionChanged="ComboProvider_SelectionChanged" />
 
                     <TextBlock Grid.Row="4" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,25,0"

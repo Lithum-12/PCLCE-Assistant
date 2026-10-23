@@ -1457,6 +1457,8 @@ public partial class FormMain
         SetupLauncherMisc = 10,
         SetupLauncherLanguage = 11,
         SetupAssistant = 12, // [ASSISTANT] fork 设置子页
+        AssistantHome = 13, // [ASSISTANT] fork 聊天页子页
+        AssistantChat = 14, // [ASSISTANT] fork 聊天页子页
 
         ToolsGameLink = 1,
         ToolsTest = 3,
@@ -1881,8 +1883,9 @@ public partial class FormMain
                 case PageType.Assistant: // [ASSISTANT] fork 顶层聊天页
                     {
                         Assistant.AssistantPages.FrmChatLeft ??= new Assistant.PageChatLeft();
-                        Assistant.AssistantPages.FrmChatRight ??= new Assistant.PageChatRight();
-                        PageChangeAnim(Assistant.AssistantPages.FrmChatLeft!, Assistant.AssistantPages.FrmChatRight!);
+                        subType = Assistant.AssistantPages.FrmChatLeft.pageID;
+                        PageChangeAnim(Assistant.AssistantPages.FrmChatLeft,
+                            (FrameworkElement)Assistant.AssistantPages.FrmChatLeft.PageGet(subType));
                         break;
                     }
                 case PageType.GameLog: // 实时日志

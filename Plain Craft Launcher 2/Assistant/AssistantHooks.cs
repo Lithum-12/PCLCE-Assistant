@@ -50,8 +50,13 @@ internal static class AssistantStrings
     internal static readonly IReadOnlyDictionary<string, string> Zh = new Dictionary<string, string>
     {
         ["Main.Tab.Assistant"] = "聊天",
-        ["Assistant.Left.Category"] = "AI 助手",
-        ["Assistant.Left.Chat"] = "对话",
+        ["Assistant.Left.HomeCategory"] = "首页",
+        ["Assistant.Left.Home"] = "开始",
+        ["Assistant.Left.HistoryCategory"] = "历史对话",
+        ["Assistant.Left.NewChat"] = "新对话",
+        ["Assistant.Home.Title"] = "AI 助手",
+        ["Assistant.Home.Description"] = "向 AI 助手提问，它可以读取当前实例的崩溃报告、模组列表，或查询 CurseForge / Modrinth 上的资源。",
+        ["Assistant.Home.Start"] = "开始对话",
         ["Assistant.Chat.Empty"] = "向 AI 助手提问，它可以读取当前实例的崩溃报告、模组列表，或查询 CurseForge / Modrinth 上的资源。",
         ["Assistant.Chat.InputHint"] = "输入内容，Enter 发送，Shift+Enter 换行",
         ["Assistant.Chat.Send"] = "发送",
@@ -83,8 +88,13 @@ internal static class AssistantStrings
     internal static readonly IReadOnlyDictionary<string, string> En = new Dictionary<string, string>
     {
         ["Main.Tab.Assistant"] = "Chat",
-        ["Assistant.Left.Category"] = "AI Assistant",
-        ["Assistant.Left.Chat"] = "Conversation",
+        ["Assistant.Left.HomeCategory"] = "Home",
+        ["Assistant.Left.Home"] = "Start",
+        ["Assistant.Left.HistoryCategory"] = "History",
+        ["Assistant.Left.NewChat"] = "New chat",
+        ["Assistant.Home.Title"] = "AI Assistant",
+        ["Assistant.Home.Description"] = "Ask the AI assistant. It can read crash reports and mod lists of the current instance, or query CurseForge / Modrinth.",
+        ["Assistant.Home.Start"] = "Start a conversation",
         ["Assistant.Chat.Empty"] = "Ask the AI assistant. It can read crash reports and mod lists of the current instance, or query CurseForge / Modrinth.",
         ["Assistant.Chat.InputHint"] = "Enter to send, Shift+Enter for a new line",
         ["Assistant.Chat.Send"] = "Send",

@@ -20,7 +20,7 @@
 
 ## 上游改动清单（哨兵 `[ASSISTANT]`）
 
-只有 6 个上游文件被改动，共 10 处，每次同步后必须逐条复核：
+只有 6 个上游文件被改动，共 12 处，每次同步后必须逐条复核：
 
 | 文件 | 处数 | 内容 |
 |---|---|---|
@@ -28,7 +28,7 @@
 | `Plain Craft Launcher 2/Program.cs` | 1 | 调用 `AssistantHooks.Install()` |
 | `Plain Craft Launcher 2/Modules/Minecraft/RestrictedFeaturePolicy.cs` | 2 | `RegionOverride` 字段 + `Assess()` 优先取 override |
 | `Plain Craft Launcher 2/FormMain.xaml` | 1 | 顶层导航按钮（下标 4） |
-| `Plain Craft Launcher 2/FormMain.xaml.cs` | 3 | `PageType.Assistant = 4`、`PageSubType.SetupAssistant = 12`、`PageChangeActual` 的 case |
+| `Plain Craft Launcher 2/FormMain.xaml.cs` | 5 | `PageType.Assistant = 4`、`PageSubType.SetupAssistant = 12`、`PageChangeActual` 的 case |
 | `Plain Craft Launcher 2/Pages/PageSetup/PageSetupLeft.xaml` | 1 | 设置左栏条目（Tag=12） |
 | `Plain Craft Launcher 2/Pages/PageSetup/PageSetupLeft.xaml.cs` | 1 | `PageGet` 的 case |
 
