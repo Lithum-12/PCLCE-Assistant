@@ -67,8 +67,6 @@ public partial class PageChatLeft
     public void PageChange(FormMain.PageSubType id)
     {
         pageID = id;
-        if (id == FormMain.PageSubType.AssistantChat && AssistantSessionStore.Current is null)
-            AssistantSessionStore.New();
         ModMain.frmMain?.PageChange(FormMain.PageType.Assistant, id);
     }
 
@@ -108,6 +106,8 @@ public partial class PageChatLeft
                 Height = 36,
                 MinPaddingRight = 35,
                 IsScaleAnimationEnabled = false,
+                LogoScale = 0.9,
+                SvgIcon = "lucide/scroll-text",
                 Buttons = [delete]
             };
             item.Check += HistoryCheck;
