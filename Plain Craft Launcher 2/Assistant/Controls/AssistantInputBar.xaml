@@ -1,0 +1,34 @@
+<UserControl x:Class="PCL.Assistant.AssistantInputBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:PCL"
+             xmlns:svgIcon="clr-namespace:PCL.Core.UI.Controls.SvgIcon;assembly=PCL.Core">
+    <StackPanel>
+        <local:MyCard HasMouseAnimation="False">
+            <Grid>
+                <local:MyTextBox x:Name="TextChatInput" HasBackground="False" BorderThickness="0"
+                                 Padding="34,11,74,11" MinHeight="46" MaxHeight="170" FontSize="13.5"
+                                 AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                                 HintText="{DynamicResource Assistant.Chat.InputHint}"
+                                 KeyDown="TextChatInput_KeyDown" />
+                <svgIcon:SvgIcon Width="14" Height="14" Margin="14,14,0,0" HorizontalAlignment="Left"
+                                 VerticalAlignment="Top" IsHitTestVisible="False"
+                                 IconBrush="{DynamicResource ColorBrush1}" Icon="lucide/sparkles" />
+                <local:MyButton x:Name="BtnSend" Width="60" Height="28" Margin="0,0,12,0" ColorType="Highlight"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Text="{DynamicResource Assistant.Chat.Send}" Click="BtnSend_Click" />
+            </Grid>
+        </local:MyCard>
+
+        <local:MyCard HasMouseAnimation="False" Margin="0,10,0,0">
+            <Grid Margin="12,8,12,8" Height="28">
+                <local:MyIconTextButton x:Name="BtnInstance" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        Text="{DynamicResource Assistant.Chat.SelectInstance}"
+                                        SvgIcon="lucide/package" Click="BtnInstance_Click" />
+                <local:MyComboBox x:Name="ComboModel" Width="220" DropDownWidthSync="False"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  SelectionChanged="ComboModel_SelectionChanged" />
+            </Grid>
+        </local:MyCard>
+    </StackPanel>
+</UserControl>
