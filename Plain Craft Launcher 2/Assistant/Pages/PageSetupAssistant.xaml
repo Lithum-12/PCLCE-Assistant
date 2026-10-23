@@ -6,38 +6,57 @@
                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                    mc:Ignorable="d" PanScroll="{Binding ElementName=PanBack}">
     <local:MyScrollViewer x:Name="PanBack" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel x:Name="PanMain" Margin="25,25,25,10">
+        <StackPanel x:Name="PanMain" Margin="25,25,25,10" Grid.IsSharedSizeScope="True">
             <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Main}">
-                <StackPanel Margin="25,40,25,16">
-                    <local:MyCheckBox x:Name="CheckEnabled" Height="22" HorizontalAlignment="Left" Margin="0,0,0,14"
+                <Grid Margin="25,40,25,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                        <ColumnDefinition Width="25" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <local:MyCheckBox x:Name="CheckEnabled" Grid.Row="0" Grid.ColumnSpan="3" Height="22"
+                                      HorizontalAlignment="Left" Margin="0,0,0,16"
                                       Text="{DynamicResource Setup.Assistant.Enabled}" Change="CheckEnabled_OnChange" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.Provider}" FontSize="13" Margin="0,0,0,5" />
-                    <local:MyComboBox x:Name="ComboProvider" Margin="0,0,0,14"
+
+                    <TextBlock Grid.Row="1" Text="{DynamicResource Setup.Assistant.Provider}" VerticalAlignment="Center"
+                               Margin="0,0,0,12" />
+                    <local:MyComboBox x:Name="ComboProvider" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                      Margin="0,0,0,12" HorizontalAlignment="Left" MinWidth="200"
                                       SelectionChanged="ComboProvider_SelectionChanged" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.BaseUrl}" FontSize="13" Margin="0,0,0,5" />
-                    <local:MyTextBox x:Name="TextBaseUrl" Margin="0,0,0,14"
-                                     HintText="{DynamicResource Setup.Assistant.BaseUrl.Tip}"
-                                     ToolTip="{DynamicResource Setup.Assistant.BaseUrl.Tip}" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.Model}" FontSize="13" Margin="0,0,0,5" />
-                    <local:MyTextBox x:Name="TextModel" Margin="0,0,0,14"
-                                     HintText="{DynamicResource Setup.Assistant.Model.Tip}"
-                                     ToolTip="{DynamicResource Setup.Assistant.Model.Tip}" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey}" FontSize="13" Margin="0,0,0,5" />
-                    <PasswordBox x:Name="TextApiKey" Margin="0,0,0,4"
-                                 ToolTip="{DynamicResource Setup.Assistant.ApiKey.Tip}" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey.Tip}" FontSize="12" Opacity="0.6"
-                               TextWrapping="Wrap" Margin="0,0,0,14" />
-                    <local:MyButton x:Name="BtnSave" Width="96" Height="34" HorizontalAlignment="Left"
-                                    Text="{DynamicResource Setup.Assistant.Save}" Click="BtnSave_Click" />
-                </StackPanel>
+
+                    <TextBlock Grid.Row="2" Text="{DynamicResource Setup.Assistant.Model}" VerticalAlignment="Center"
+                               Margin="0,0,0,12" />
+                    <local:MyTextBox x:Name="TextModel" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2"
+                                     Margin="0,0,0,12" ToolTip="{DynamicResource Setup.Assistant.Model.Tip}"
+                                     ValidateChanged="TextModel_ValidateChanged" />
+
+                    <TextBlock Grid.Row="3" Text="{DynamicResource Setup.Assistant.ApiKey}" VerticalAlignment="Center"
+                               Margin="0,0,0,12" />
+                    <PasswordBox x:Name="TextApiKey" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
+                                 Margin="0,0,0,12" ToolTip="{DynamicResource Setup.Assistant.ApiKey.Tip}"
+                                 LostFocus="TextApiKey_LostFocus" />
+
+                    <TextBlock x:Name="TextBaseUrlLabel" Grid.Row="4" Text="{DynamicResource Setup.Assistant.BaseUrl}"
+                               VerticalAlignment="Center" />
+                    <local:MyTextBox x:Name="TextBaseUrl" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
+                                     ToolTip="{DynamicResource Setup.Assistant.BaseUrl.Tip}"
+                                     ValidateChanged="TextBaseUrl_ValidateChanged" />
+                </Grid>
             </local:MyCard>
+
             <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Region}">
-                <StackPanel Margin="25,40,25,16">
-                    <local:MyCheckBox x:Name="CheckBypass" Height="22" HorizontalAlignment="Left"
-                                      Text="{DynamicResource Setup.Assistant.Region}" Change="CheckBypass_OnChange" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.Region.Tip}" FontSize="12" Opacity="0.6"
-                               TextWrapping="Wrap" Margin="0,10,0,0" />
-                </StackPanel>
+                <local:MyCheckBox x:Name="CheckBypass" Height="22" HorizontalAlignment="Left" Margin="25,40,25,16"
+                                  Text="{DynamicResource Setup.Assistant.Region}"
+                                  ToolTip="{DynamicResource Setup.Assistant.Region.Tip}"
+                                  Change="CheckBypass_OnChange" />
             </local:MyCard>
         </StackPanel>
     </local:MyScrollViewer>

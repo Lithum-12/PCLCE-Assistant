@@ -75,8 +75,6 @@ internal static class AssistantStrings
         ["Setup.Assistant.Model.Tip"] = "对话所使用的模型 ID",
         ["Setup.Assistant.ApiKey"] = "API 密钥",
         ["Setup.Assistant.ApiKey.Tip"] = "密钥以加密配置存储，不会写入明文 config。",
-        ["Setup.Assistant.Save"] = "保存",
-        ["Setup.Assistant.Saved"] = "已保存",
         ["Setup.Assistant.Card.Region"] = "区域限制",
         ["Setup.Assistant.Region"] = "放行被上游按区域禁用的功能",
         ["Setup.Assistant.Region.Tip"] = "上游自 2.15.1 起依据系统区域信息禁用下载、安装与整合包功能。本 fork 默认放行，关闭后恢复上游判定。"
@@ -110,8 +108,6 @@ internal static class AssistantStrings
         ["Setup.Assistant.Model.Tip"] = "Model id used for chat",
         ["Setup.Assistant.ApiKey"] = "API key",
         ["Setup.Assistant.ApiKey.Tip"] = "Stored in the encrypted config, never in plaintext.",
-        ["Setup.Assistant.Save"] = "Save",
-        ["Setup.Assistant.Saved"] = "Saved",
         ["Setup.Assistant.Card.Region"] = "Region restriction",
         ["Setup.Assistant.Region"] = "Allow features upstream gates by region",
         ["Setup.Assistant.Region.Tip"] = "Since 2.15.1 upstream disables download, install and modpack features by system region. This fork allows them by default."
