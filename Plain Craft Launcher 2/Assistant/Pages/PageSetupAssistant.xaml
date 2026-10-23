@@ -11,6 +11,9 @@
                 <StackPanel Margin="25,40,25,16">
                     <local:MyCheckBox x:Name="CheckEnabled" Height="22" HorizontalAlignment="Left" Margin="0,0,0,14"
                                       Text="{DynamicResource Setup.Assistant.Enabled}" Change="CheckEnabled_OnChange" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.Provider}" FontSize="13" Margin="0,0,0,5" />
+                    <local:MyComboBox x:Name="ComboProvider" Margin="0,0,0,14"
+                                      SelectionChanged="ComboProvider_SelectionChanged" />
                     <TextBlock Text="{DynamicResource Setup.Assistant.BaseUrl}" FontSize="13" Margin="0,0,0,5" />
                     <local:MyTextBox x:Name="TextBaseUrl" Margin="0,0,0,14"
                                      HintText="{DynamicResource Setup.Assistant.BaseUrl.Tip}"
