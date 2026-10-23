@@ -49,6 +49,8 @@ public partial class PageSetupAssistant
         var showCustom = IsCustomProvider;
         TextBaseUrlLabel.Visibility = showCustom ? Visibility.Visible : Visibility.Collapsed;
         TextBaseUrl.Visibility = showCustom ? Visibility.Visible : Visibility.Collapsed;
+        RowAddress.Height = new GridLength(showCustom ? 28 : 0);
+        RowAddressSpacer.Height = new GridLength(showCustom ? 5 : 0);
     }
 
     private void ComboProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
