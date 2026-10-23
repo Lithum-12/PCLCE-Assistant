@@ -75,7 +75,7 @@ public partial class AssistantInputBar
         Config.Assistant.ModelName = model;
     }
 
-    private void TextChatInput_KeyDown(object sender, KeyEventArgs e)
+    private void TextChatInput_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || e.KeyboardDevice.Modifiers == ModifierKeys.Shift) return;
         e.Handled = true;

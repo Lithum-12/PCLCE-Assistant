@@ -8,9 +8,9 @@
             <Grid>
                 <local:MyTextBox x:Name="TextChatInput" HasBackground="False" BorderThickness="0"
                                  Padding="34,11,74,11" MinHeight="46" MaxHeight="170" FontSize="13.5"
-                                 AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"
+                                 AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Center"
                                  HintText="{DynamicResource Assistant.Chat.InputHint}"
-                                 KeyDown="TextChatInput_KeyDown" />
+                                 PreviewKeyDown="TextChatInput_PreviewKeyDown" />
                 <svgIcon:SvgIcon Width="14" Height="14" Margin="14,14,0,0" HorizontalAlignment="Left"
                                  VerticalAlignment="Top" IsHitTestVisible="False"
                                  IconBrush="{DynamicResource ColorBrush1}" Icon="lucide/sparkles" />

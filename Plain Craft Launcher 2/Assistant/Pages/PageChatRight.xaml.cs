@@ -12,25 +12,43 @@ namespace PCL.Assistant;
 
 public partial class PageChatRight
 {
-    private readonly List<AssistantMessage> _history = new();
     private CancellationTokenSource? _cts;
 
     public PageChatRight()
     {
         InitializeComponent();
+        Loaded += (_, _) => RenderMessages();
         InputBar.SendRequested += text => _ = SendAsync(text);
         InputBar.StopRequested += () => _cts?.Cancel();
     }
 
     public void NewConversation()
     {
-        _history.Clear();
-        PanMessages.Children.Clear();
-        PanMessages.Children.Add(TextEmpty);
-        TextEmpty.Visibility = Visibility.Visible;
+        AssistantSessionStore.New();
+        RenderMessages();
+    }
+
+    public void LoadSession(AssistantSession session)
+    {
+        AssistantSessionStore.Use(session);
+        RenderMessages();
     }
 
     public void SendFromExternal(string text) => _ = SendAsync(text);
+
+    private AssistantSession CurrentSession =>
+        AssistantSessionStore.Current ?? AssistantSessionStore.New();
+
+    private void RenderMessages()
+    {
+        PanMessages.Children.Clear();
+        var messages = AssistantSessionStore.Current?.Messages;
+        TextEmpty.Visibility = messages is null || messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (messages is null) return;
+        foreach (var message in messages)
+            AppendBubble(message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
+                message.Content);
+    }
 
     private async Task SendAsync(string input)
     {
@@ -49,9 +67,13 @@ public partial class PageChatRight
             return;
         }
 
+        var session = CurrentSession;
+        if (string.IsNullOrWhiteSpace(session.Title))
+            session.Title = input.Length > 24 ? input[..24] + "…" : input;
+
         TextEmpty.Visibility = Visibility.Collapsed;
         AppendBubble("Assistant.Chat.RoleUser", input);
-        _history.Add(new AssistantMessage("user", input));
+        session.Messages.Add(new AssistantMessage("user", input));
         var answer = AppendBubble("Assistant.Chat.RoleAssistant", "");
 
         _cts = new CancellationTokenSource();
@@ -59,7 +81,7 @@ public partial class PageChatRight
         try
         {
             var messages = new List<AssistantMessage> { new("system", BuildSystemPrompt()) };
-            messages.AddRange(_history);
+            messages.AddRange(session.Messages);
             var text = await AssistantClient.ChatAsync(messages, Config.Assistant.ApiBaseUrl,
                 Config.Assistant.ModelName, Config.Assistant.ApiKey,
                 new Progress<string>(delta =>
@@ -67,7 +89,7 @@ public partial class PageChatRight
                     answer.Text += delta;
                     PanBack.ScrollToBottom();
                 }), _cts.Token);
-            _history.Add(new AssistantMessage("assistant", text));
+            answer.Text = text;
         }
         catch (OperationCanceledException)
         {
@@ -86,6 +108,8 @@ public partial class PageChatRight
             InputBar.SetBusy(false);
             _cts.Dispose();
             _cts = null;
+            if (answer.Text.Length > 0) session.Messages.Add(new AssistantMessage("assistant", answer.Text));
+            AssistantSessionStore.Save();
         }
     }
 
