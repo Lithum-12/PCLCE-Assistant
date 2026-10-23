@@ -1380,6 +1380,11 @@ public partial class FormMain
         Setup = 2,
 
         /// <summary>
+        ///     AI 助手聊天。[ASSISTANT] fork 追加的顶层页面，数值必须与 PanTitleSelect 中的下标一致。
+        /// </summary>
+        Assistant = 4,
+
+        /// <summary>
         ///     实例选择。这是一个副页面。
         /// </summary>
         InstanceSelect = 5,
@@ -1451,6 +1456,7 @@ public partial class FormMain
         SetupJava = 9,
         SetupLauncherMisc = 10,
         SetupLauncherLanguage = 11,
+        SetupAssistant = 12, // [ASSISTANT] fork 设置子页
 
         ToolsGameLink = 1,
         ToolsTest = 3,
@@ -1870,6 +1876,13 @@ public partial class FormMain
                         ModMain.frmSetupLeft ??= new PageSetupLeft();
                         subType = ModMain.frmSetupLeft.pageID;
                         PageChangeAnim(ModMain.frmSetupLeft, (FrameworkElement)ModMain.frmSetupLeft.PageGet(subType));
+                        break;
+                    }
+                case PageType.Assistant: // [ASSISTANT] fork 顶层聊天页
+                    {
+                        Assistant.AssistantPages.FrmChatLeft ??= new Assistant.PageChatLeft();
+                        Assistant.AssistantPages.FrmChatRight ??= new Assistant.PageChatRight();
+                        PageChangeAnim(Assistant.AssistantPages.FrmChatLeft, Assistant.AssistantPages.FrmChatRight);
                         break;
                     }
                 case PageType.GameLog: // 实时日志

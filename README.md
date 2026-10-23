@@ -1,3 +1,6 @@
+> [!NOTE]
+> <!-- [ASSISTANT] --> 本仓库是 PCL-CE 的私有 fork：追加了「聊天」AI 助手页，并放行上游按区域禁用的功能。差异清单与同步流程见 [assistant/README.md](assistant/README.md)。
+
 **简体中文** | [English](README-EN.md) | [繁體中文](README-ZH_TW.md)
 
 <div align="center">

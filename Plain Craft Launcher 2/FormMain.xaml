@@ -170,6 +170,11 @@
                                                  Check="BtnTitleSelect_Click"
                                                  LogoScale="1"
                                                  SvgIcon="lucide/wrench" />
+                            <!--  [ASSISTANT] 顶层“聊天”入口，PageType 数值必须与本控件在 PanTitleSelect 中的下标一致  -->
+                            <local:MyRadioButton x:Name="BtnTitleSelect4" Text="{DynamicResource Main.Tab.Assistant}" Tag="4" Margin="5,0" Padding="2,0"
+                                                 Check="BtnTitleSelect_Click"
+                                                 LogoScale="0.95"
+                                                 SvgIcon="lucide/message-circle" />
                         </StackPanel>
                     </Grid>
                     <Grid x:Name="PanTitleInner" Visibility="Collapsed" Margin="-16,0,0,0" Opacity="0"

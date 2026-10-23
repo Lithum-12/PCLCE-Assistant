@@ -1,0 +1,42 @@
+<local:MyPageRight x:Class="PCL.Assistant.PageSetupAssistant"
+                   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:local="clr-namespace:PCL"
+                   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                   mc:Ignorable="d" PanScroll="{Binding ElementName=PanBack}">
+    <local:MyScrollViewer x:Name="PanBack" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="PanMain" Margin="25,25,25,10">
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Main}">
+                <StackPanel Margin="25,40,25,16">
+                    <local:MyCheckBox x:Name="CheckEnabled" Height="22" HorizontalAlignment="Left" Margin="0,0,0,14"
+                                      Text="{DynamicResource Setup.Assistant.Enabled}" Change="CheckEnabled_OnChange" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.BaseUrl}" FontSize="13" Margin="0,0,0,5" />
+                    <local:MyTextBox x:Name="TextBaseUrl" Margin="0,0,0,4"
+                                     HintText="{DynamicResource Setup.Assistant.BaseUrl.Tip}" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.BaseUrl.Tip}" FontSize="12" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.Model}" FontSize="13" Margin="0,0,0,5" />
+                    <local:MyTextBox x:Name="TextModel" Margin="0,0,0,4"
+                                     HintText="{DynamicResource Setup.Assistant.Model.Tip}" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.Model.Tip}" FontSize="12" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey}" FontSize="13" Margin="0,0,0,5" />
+                    <local:MyTextBox x:Name="TextApiKey" Margin="0,0,0,4" PasswordChar="●" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey.Tip}" FontSize="12" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <local:MyButton x:Name="BtnSave" Width="96" Height="34" HorizontalAlignment="Left"
+                                    Text="{DynamicResource Setup.Assistant.Save}" Click="BtnSave_Click" />
+                </StackPanel>
+            </local:MyCard>
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Region}">
+                <StackPanel Margin="25,40,25,16">
+                    <local:MyCheckBox x:Name="CheckBypass" Height="22" HorizontalAlignment="Left"
+                                      Text="{DynamicResource Setup.Assistant.Region}" Change="CheckBypass_OnChange" />
+                    <TextBlock Text="{DynamicResource Setup.Assistant.Region.Tip}" FontSize="12" Opacity="0.6"
+                               TextWrapping="Wrap" Margin="0,10,0,0" />
+                </StackPanel>
+            </local:MyCard>
+        </StackPanel>
+    </local:MyScrollViewer>
+</local:MyPageRight>

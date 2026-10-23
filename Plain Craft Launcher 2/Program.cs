@@ -24,6 +24,7 @@ internal static class Program
         }
 #endif
         Console.WriteLine("Welcome to Plain Craft Launcher 2 Community Edition!");
+        Assistant.AssistantHooks.Install(); // [ASSISTANT] fork 侧注入（区域判定覆盖、字符串资源）
         // Preloading tasks
         ApplicationService.Loading = static () =>
         {

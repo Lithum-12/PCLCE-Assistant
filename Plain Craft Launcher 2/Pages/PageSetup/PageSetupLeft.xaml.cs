@@ -322,6 +322,13 @@ public partial class PageSetupLeft
                 return ModMain.frmSetupJava;
             }
 
+            case FormMain.PageSubType.SetupAssistant: // [ASSISTANT] fork 设置子页
+            {
+                if (Assistant.AssistantPages.FrmSetupAssistant is null)
+                    Assistant.AssistantPages.FrmSetupAssistant = new Assistant.PageSetupAssistant();
+                return Assistant.AssistantPages.FrmSetupAssistant;
+            }
+
             default:
             {
                 throw new Exception("未知的设置子页面种类：" + (int)id);

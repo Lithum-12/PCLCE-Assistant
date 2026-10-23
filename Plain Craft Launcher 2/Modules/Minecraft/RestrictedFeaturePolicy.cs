@@ -6,7 +6,10 @@ namespace PCL;
 
 internal static class RestrictedFeaturePolicy
 {
-    internal static RegionAssessment Assess() => RegionPolicy.Evaluate(RegionPolicy.ReadWindowsSignals());
+    // [ASSISTANT] fork 注入点：返回 null 时沿用上游判定
+    internal static Func<RegionAssessment?>? RegionOverride;
+
+    internal static RegionAssessment Assess() => RegionOverride?.Invoke() ?? RegionPolicy.Evaluate(RegionPolicy.ReadWindowsSignals()); // [ASSISTANT]
 
     internal static bool IsRestricted => Assess().IsRestricted;
 
