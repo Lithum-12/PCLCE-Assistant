@@ -8,6 +8,8 @@
     <StackPanel x:Name="PanItem" Margin="0,12,0,0" Orientation="Vertical">
         <TextBlock Text="{DynamicResource Assistant.Left.Category}" Margin="13,5,5,3" Opacity="0.6" FontSize="12" />
         <local:MyListItem x:Name="ItemChat" IsScaleAnimationEnabled="False" Tag="0" MinPaddingRight="35" Height="36"
-                          VerticalAlignment="Top" Title="{DynamicResource Assistant.Left.Chat}" Type="RadioBox" />
+                          VerticalAlignment="Top" Title="{DynamicResource Assistant.Left.Chat}" Type="RadioBox"
+                          LogoScale="0.9"
+                          SvgIcon="lucide/scroll-text" />
     </StackPanel>
 </local:MyPageLeft>
