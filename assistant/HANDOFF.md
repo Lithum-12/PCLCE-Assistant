@@ -4,10 +4,10 @@
 
 ## 仓库与构建
 
-- 工作副本：`C:\Users\35320\Documents\Qoder\2026-10-23\2046fff2\pclce`，分支 `main`，基线提交 `bfb5dc1`。
+- 工作副本：`<REPO>`，分支 `main`，基线提交 `bfb5dc1`。
 - 这是 `PCL-Community/PCL-CE`（默认分支 dev，基线 v2.15.1 / 8f0beaf）的 fork。remote：`upstream`=上游；`origin`=本仓库。
 - 构建：`dotnet build "Plain Craft Launcher 2.slnx" -c Debug`（.NET 10 SDK 已装，net10.0-windows）。
-  若报 `MSB3027 ... 被 "Plain Craft Launcher Community Edition (pid)" 锁定`：有启动器实例占着输出目录。用户自己的实例**不许 kill**；改用隔离输出：`dotnet build ... -o C:\Users\35320\Documents\Qoder\2026-10-23\2046fff2\tools\ui-verify`。
+  若报 `MSB3027 ... 被 "Plain Craft Launcher Community Edition (pid)" 锁定`：有启动器实例占着输出目录。用户自己的实例**不许 kill**；改用隔离输出：`dotnet build ... -o <REPO>\..	ools\ui-verify`。
 - 校验钩子：`powershell -NoProfile -File assistant\check-hooks.ps1` 必须绿。
 
 ## 分离约定（违反即破坏整个 fork 的可维护性）
@@ -26,7 +26,7 @@
   Start-Process "$d\Plain Craft Launcher 2.exe" -WorkingDirectory $d
   ```
 
-  环境变量依据 `PCL.Core/App/Paths.cs:81-84`（仅 Debug 生效）。会话/配置落在沙箱目录，与用户的 `%APPDATA%\PCLCE_Debug` 完全隔离。
+  环境变量依据 `PCL.Core/App/Paths.cs:81-84`（仅 Debug 生效）。会话/配置落在沙箱目录，与用户的 `%APPDATA%\<PCLCE 数据目录>` 完全隔离。
 - 日志：`<exe目录>\PCL\Log\Launch-*.log`。**崩溃排查先看最新日志末尾**；若进程消失而无异常落盘，按栈溢出查事件环（本项目已发生过一次）。
 - 量控件矩形（只读、不点击）：`tools\ui-measure.ps1`，按 `x:Name`（AutomationId）输出窗口相对坐标。DPI=144（1.5x）。
 - **禁止**盲坐标点击用户的实时桌面、禁止按进程名 kill 用户实例。需要交互验证就在沙箱窗口里做，或请用户操作。
