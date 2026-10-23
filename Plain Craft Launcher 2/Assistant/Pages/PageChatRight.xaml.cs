@@ -46,6 +46,14 @@ public partial class PageChatRight
         _loadingModels = true;
         ComboModel.Items.Clear();
         var models = AssistantProviders.ModelsFor(Config.Assistant.ApiBaseUrl, Config.Assistant.ModelName);
+        if (models.Length == 0)
+        {
+            ComboModel.Items.Add(new MyComboBoxItem { Content = Lang.Text("Assistant.Chat.Model.None"), IsEnabled = false });
+            ComboModel.SelectedIndex = 0;
+            _loadingModels = false;
+            return;
+        }
+
         foreach (var model in models) ComboModel.Items.Add(new MyComboBoxItem { Content = model, Tag = model });
 
         var current = Config.Assistant.ModelName;
