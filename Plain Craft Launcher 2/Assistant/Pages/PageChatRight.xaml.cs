@@ -22,7 +22,7 @@ public partial class PageChatRight
         }
     }
 
-    private void BtnSend_Click(object sender, RoutedEventArgs e) => SendCurrentInput();
+    private void BtnSend_Click(object sender, MouseButtonEventArgs e) => SendCurrentInput();
 
     private void SendCurrentInput()
     {

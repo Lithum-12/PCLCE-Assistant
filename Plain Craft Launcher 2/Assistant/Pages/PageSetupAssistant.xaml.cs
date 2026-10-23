@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
 using PCL.Core.UI;
@@ -35,7 +36,7 @@ public partial class PageSetupAssistant
         HintService.Hint(Lang.Text("Setup.Assistant.Saved"), HintType.Info);
     }
 
-    private void BtnSave_Click(object sender, RoutedEventArgs e)
+    private void BtnSave_Click(object sender, MouseButtonEventArgs e)
     {
         Config.Assistant.ApiBaseUrl = TextBaseUrl.Text.Trim();
         Config.Assistant.ModelName = TextModel.Text.Trim();

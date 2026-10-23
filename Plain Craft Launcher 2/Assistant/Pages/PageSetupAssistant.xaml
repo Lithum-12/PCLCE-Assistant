@@ -12,17 +12,16 @@
                     <local:MyCheckBox x:Name="CheckEnabled" Height="22" HorizontalAlignment="Left" Margin="0,0,0,14"
                                       Text="{DynamicResource Setup.Assistant.Enabled}" Change="CheckEnabled_OnChange" />
                     <TextBlock Text="{DynamicResource Setup.Assistant.BaseUrl}" FontSize="13" Margin="0,0,0,5" />
-                    <local:MyTextBox x:Name="TextBaseUrl" Margin="0,0,0,4"
-                                     HintText="{DynamicResource Setup.Assistant.BaseUrl.Tip}" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.BaseUrl.Tip}" FontSize="12" Opacity="0.6"
-                               TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <local:MyTextBox x:Name="TextBaseUrl" Margin="0,0,0,14"
+                                     HintText="{DynamicResource Setup.Assistant.BaseUrl.Tip}"
+                                     ToolTip="{DynamicResource Setup.Assistant.BaseUrl.Tip}" />
                     <TextBlock Text="{DynamicResource Setup.Assistant.Model}" FontSize="13" Margin="0,0,0,5" />
-                    <local:MyTextBox x:Name="TextModel" Margin="0,0,0,4"
-                                     HintText="{DynamicResource Setup.Assistant.Model.Tip}" />
-                    <TextBlock Text="{DynamicResource Setup.Assistant.Model.Tip}" FontSize="12" Opacity="0.6"
-                               TextWrapping="Wrap" Margin="0,0,0,14" />
+                    <local:MyTextBox x:Name="TextModel" Margin="0,0,0,14"
+                                     HintText="{DynamicResource Setup.Assistant.Model.Tip}"
+                                     ToolTip="{DynamicResource Setup.Assistant.Model.Tip}" />
                     <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey}" FontSize="13" Margin="0,0,0,5" />
-                    <PasswordBox x:Name="TextApiKey" Margin="0,0,0,4" />
+                    <PasswordBox x:Name="TextApiKey" Margin="0,0,0,4"
+                                 ToolTip="{DynamicResource Setup.Assistant.ApiKey.Tip}" />
                     <TextBlock Text="{DynamicResource Setup.Assistant.ApiKey.Tip}" FontSize="12" Opacity="0.6"
                                TextWrapping="Wrap" Margin="0,0,0,14" />
                     <local:MyButton x:Name="BtnSave" Width="96" Height="34" HorizontalAlignment="Left"
