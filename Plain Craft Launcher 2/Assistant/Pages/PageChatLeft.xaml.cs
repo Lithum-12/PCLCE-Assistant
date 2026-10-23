@@ -29,6 +29,7 @@ public partial class PageChatLeft
 
     private void PageCheck(object senderRaw, ModBase.RouteEventArgs e)
     {
+        if (!e.raiseByMouse) return;
         var sender = (MyListItem)senderRaw;
         if (sender.Tag is null) return;
         var target = (FormMain.PageSubType)ModBase.Val(sender.Tag);
@@ -43,6 +44,7 @@ public partial class PageChatLeft
 
     private void HistoryCheck(object senderRaw, ModBase.RouteEventArgs e)
     {
+        if (!e.raiseByMouse) return;
         if (((MyListItem)senderRaw).Tag is not AssistantSession session) return;
         AssistantSessionStore.Use(session);
         if (pageID != FormMain.PageSubType.AssistantChat)

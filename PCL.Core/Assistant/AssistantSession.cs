@@ -39,6 +39,7 @@ public static class AssistantSessionStore
 
     public static void Use(AssistantSession? session)
     {
+        if (ReferenceEquals(Current, session)) return;
         Current = session;
         Changed?.Invoke();
     }
