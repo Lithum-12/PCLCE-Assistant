@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using PCL.Core.App;
@@ -34,11 +35,13 @@ internal sealed class AssistantToolset
         "当前没有选中任何游戏实例。请在启动器的「实例」页选中一个实例后再问，或者先让用户选择实例。";
 
     private readonly McInstance? _instance;
+    private readonly List<string> _allowedSites;
     private readonly List<string> _trace = [];
 
     public AssistantToolset(McInstance? instance)
     {
         _instance = instance;
+        _allowedSites = Config.Assistant.AllowedSites ?? [];
         Definitions = BuildDefinitions();
     }
 
@@ -47,6 +50,13 @@ internal sealed class AssistantToolset
     public IReadOnlyList<string> Trace => _trace;
 
     private bool Redacts => Config.Assistant.RedactLocalContent;
+
+    private static readonly Regex ScriptStyleRegex = new(@"(?is)<(script|style)[^>]*>.*?</\1>",
+        RegexOptions.CultureInvariant);
+
+    private static readonly Regex TagRegex = new(@"<[^>]{0,400}>", RegexOptions.CultureInvariant);
+
+    private static readonly Regex WhitespaceRegex = new(@"\s{2,}", RegexOptions.CultureInvariant);
 
     private static IReadOnlyDictionary<string, string> CurseForgeClassIds { get; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -68,6 +78,9 @@ internal sealed class AssistantToolset
             "list_mods" => ListMods(),
             "search_modrinth" => await SearchModrinthAsync(args, token),
             "search_curseforge" => await SearchCurseForgeAsync(args, token),
+            "list_instance_files" => ListInstanceFiles(Args(args, "path")),
+            "read_instance_file" => ReadInstanceFile(Args(args, "path")),
+            "read_site" => await ReadSiteAsync(Args(args, "site"), Args(args, "path"), token),
             _ => ($"没有名为 {call.Name} 的工具。", "", true)
         };
 
@@ -84,6 +97,9 @@ internal sealed class AssistantToolset
         "list_mods" => ("package", Lang.Text("Assistant.Tool.list_mods")),
         "search_modrinth" => ("search", Lang.Text("Assistant.Tool.search_modrinth")),
         "search_curseforge" => ("search", Lang.Text("Assistant.Tool.search_curseforge")),
+        "list_instance_files" => ("folder-open", Lang.Text("Assistant.Tool.list_instance_files")),
+        "read_instance_file" => ("file-input", Lang.Text("Assistant.Tool.read_instance_file")),
+        "read_site" => ("globe", Lang.Text("Assistant.Tool.read_site")),
         _ => ("settings", Lang.Text("Assistant.Tool.unknown"))
     };
 
@@ -121,8 +137,30 @@ internal sealed class AssistantToolset
                     new AssistantToolParam("limit", "可选，返回条数，1 到 15，默认 6")
                 ]));
 
+        // 放开到整个实例目录：崩溃报告只是其中一小部分，配置、启动脚本、模组冲突线索都在别处
+        defs.Add(new("list_instance_files",
+            "列出当前实例目录下的某个子目录，用于先看清结构再读文件。",
+            [new AssistantToolParam("path", "相对实例根目录的路径，留空表示根目录，例如 logs、config、saves/世界名")]));
+        defs.Add(new("read_instance_file",
+            "读取当前实例目录下的任意一个文本文件（已截断，敏感文件会被拒绝）。",
+            [new AssistantToolParam("path", "相对实例根目录的文件路径，例如 options.txt、logs/latest.log、config/sodium-options.json")]));
+
+        var allowed = AllowedIds();
+        if (allowed.Count > 0)
+            defs.Add(new("read_site",
+                "查阅一个白名单站点的公开页面或 API，返回文本（已截断）。可用站点：" + string.Join("、", allowed),
+                [
+                    new AssistantToolParam("site", "站点短名，只能是：" + string.Join("、", allowed)),
+                    new AssistantToolParam("path", "站内相对路径，可带查询串，例如 /v2/versions/loader/1.20.1、/s?key=钠")
+                ]));
+
         return defs;
     }
+
+    private List<string> AllowedIds() => AssistantSites.All
+        .Where(s => AssistantSites.Allows(s.Id, _allowedSites))
+        .Select(s => s.Id)
+        .ToList();
 
     private (string Content, string Note, bool Failed) ReadCrashReports(int maxFiles)
     {
@@ -159,6 +197,97 @@ internal sealed class AssistantToolset
         AddTrace($"latest.log 尾部 {FormatSize(text.Length)}{(log.Truncated ? "（已截断）" : "")}");
         return (Header() + $"=== {log.Source}（读到 {log.RawChars} 字，送出 {text.Length} 字）===\n" + text,
             $"{FormatSize(text.Length)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
+    }
+
+    private (string Content, string Note, bool Failed) ListInstanceFiles(string relative)
+    {
+        if (_instance is null) return (NoInstance, "", false);
+
+        var root = _instance.PathIndie;
+        var path = string.IsNullOrWhiteSpace(relative)
+            ? Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            : AssistantLocalReader.ResolveInstancePath(root, relative);
+        if (path is null) return ("只能访问实例目录内的路径，且不能包含 .. 或盘符。", "拒绝", true);
+
+        var entries = AssistantLocalReader.ListDirectory(path);
+        if (entries.Count == 0) return ($"{relative} 这个目录不存在或者是空的。", "0 项", false);
+
+        AddTrace($"目录清单 {relative} 共 {entries.Count} 项");
+        return ($"实例 {_instance.Name} 的目录 {path}（{entries.Count} 项）：\n" + string.Join("\n", entries),
+            $"{entries.Count} 项", false);
+    }
+
+    private (string Content, string Note, bool Failed) ReadInstanceFile(string relative)
+    {
+        if (_instance is null) return (NoInstance, "", false);
+
+        var root = _instance.PathIndie;
+        var path = AssistantLocalReader.ResolveInstancePath(root, relative);
+        if (path is null)
+            return ($"{relative} 不在实例目录内，或属于被拒绝的敏感文件（启动器配置、密钥库等）。", "拒绝", true);
+        if (Directory.Exists(path)) return ($"{relative} 是目录，请改用 list_instance_files。", "是目录", false);
+        if (!File.Exists(path)) return ($"{relative} 不存在。", "无此文件", false);
+
+        var file = AssistantLocalReader.ReadFile(root, path);
+        if (file is null) return ($"{relative} 读取失败。", "失败", true);
+
+        var text = Protect(file.Text);
+        AddTrace($"文件 {file.Source} 送出 {FormatSize(text.Length)}");
+        return ($"=== {file.Source}（{(file.Truncated ? "已截断" : "完整")}，读到 {file.RawChars} 字，送出 {text.Length} 字）===\n" +
+                text, $"{FormatSize(text.Length)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
+    }
+
+    private async Task<(string Content, string Note, bool Failed)> ReadSiteAsync(string siteId, string path,
+        CancellationToken token)
+    {
+        var site = AssistantSites.Find(siteId);
+        if (site is null) return ($"没有名为 {siteId} 的站点。可用：" + string.Join("、", AllowedIds()), "未知站点", true);
+
+        if (!AssistantSites.Allows(site.Id, _allowedSites))
+            return ($"{site.Label} 没有在 设置 → AI 助手 → 可查阅的站点 中开启。", "未开启", true);
+
+        var url = AssistantSites.BuildUrl(site, path);
+        if (url is null) return ($"只接受 {site.Label} 站内的相对路径，例如 /v2/versions/loader/1.20.1。", "路径非法", true);
+
+        var (body, error) = await GetRawAsync(url, token);
+        if (body is null) return ($"读取 {url} 失败：{error}", "失败", true);
+
+        var text = Protect(CleanBody(body));
+        AddTrace($"查阅 {site.Label} {new Uri(url).AbsolutePath}");
+        return ($"GET {url}\n" + text, $"{FormatSize(text.Length)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
+    }
+
+    private static async Task<(string? Body, string? Error)> GetRawAsync(string url, CancellationToken token)
+    {
+        try
+        {
+            using var response = await NetworkService.GetClient().GetAsync(new Uri(url), token);
+            var text = await response.Content.ReadAsStringAsync(token);
+            return response.IsSuccessStatusCode
+                ? (text, null)
+                : (null, $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}：{Shorten(text, 160)}");
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            return (null, e.Message);
+        }
+    }
+
+    /// <summary>JSON 原样给模型，HTML 剥掉标签再给，否则一半预算都花在标签上。</summary>
+    private static string CleanBody(string body)
+    {
+        var head = body.TrimStart();
+        if (head.StartsWith('{') || head.StartsWith('[')) return Shorten(body, ContentBudgetChars);
+
+        var text = ScriptStyleRegex.Replace(body, " ");
+        text = TagRegex.Replace(text, " ");
+        text = text.Replace("&amp;", "&").Replace("&lt;", "<").Replace("&gt;", ">")
+            .Replace("&quot;", "\"").Replace("&#39;", "'").Replace("&nbsp;", " ");
+        return Shorten(WhitespaceRegex.Replace(text, " ").Trim(), ContentBudgetChars);
     }
 
     private (string Content, string Note, bool Failed) ListMods()

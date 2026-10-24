@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using PCL.Core.App.Configuration;
 
 namespace PCL.Core.App;
@@ -24,5 +25,8 @@ public static partial class Config
 
         // 本地文件内容发出去之前先刮掉用户名、IP、坐标等，关掉它等于允许原文外发
         [ConfigItem<bool>("AssistantRedactLocal", true)] public partial bool RedactLocalContent { get; set; }
+
+        // AI 允许联网查阅哪些站点；空列表 = 没配置过（按默认全开），["none"] = 全部关掉
+        [AnyConfigItem<List<string>>("AssistantAllowedSites")] public partial List<string> AllowedSites { get; set; }
     }
 }

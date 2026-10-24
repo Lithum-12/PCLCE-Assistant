@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using PCL.Core.App;
@@ -26,7 +27,38 @@ public partial class PageSetupAssistant
         TextApiKey.Password = Config.Assistant.ApiKey;
         TextBaseUrl.Text = Config.Assistant.ApiBaseUrl;
         LoadProviders();
+        LoadSites();
         RefreshAddressRow();
+    }
+
+    private void LoadSites()
+    {
+        PanSites.Children.Clear();
+        foreach (var site in AssistantSites.All)
+        {
+            var box = new MyCheckBox
+            {
+                Text = site.Label,
+                Tag = site.Id,
+                Height = 22,
+                Margin = new Thickness(0, 0, 0, 6),
+                ToolTip = site.Host + "\n" + site.Hint
+            };
+            box.SetChecked(AssistantSites.Allows(site.Id, Config.Assistant.AllowedSites), false);
+            box.Change += Site_OnChange;
+            PanSites.Children.Add(box);
+        }
+    }
+
+    private void Site_OnChange(object senderRaw, bool user)
+    {
+        if (!user || ModAnimation.AniControlEnabled != 0) return;
+        var enabled = PanSites.Children.OfType<MyCheckBox>()
+            .Where(c => c.Checked == true && c.Tag is string)
+            .Select(c => (string)c.Tag!)
+            .ToList();
+        // 全关时写入哨兵，空列表在 AssistantSites 里表示"没配置过 = 默认全开"
+        Config.Assistant.AllowedSites = enabled.Count == 0 ? [AssistantSites.NoneMarker] : enabled;
     }
 
     private void LoadProviders()

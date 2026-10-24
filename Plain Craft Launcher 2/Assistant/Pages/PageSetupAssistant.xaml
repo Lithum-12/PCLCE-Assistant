@@ -55,6 +55,14 @@
                 </Grid>
             </local:MyCard>
 
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Sites}">
+                <StackPanel Margin="25,40,25,16" Orientation="Vertical">
+                    <local:MyHint Margin="0,0,0,10" Theme="Blue" CanClose="False"
+                                  Text="{DynamicResource Setup.Assistant.Sites.Tip}" />
+                    <StackPanel x:Name="PanSites" Orientation="Vertical" />
+                </StackPanel>
+            </local:MyCard>
+
             <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Region}">
                 <local:MyCheckBox x:Name="CheckBypass" Height="22" HorizontalAlignment="Left" Margin="25,40,25,16"
                                   Text="{DynamicResource Setup.Assistant.Region}"

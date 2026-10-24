@@ -126,8 +126,79 @@ public static class AssistantLocalReader
 
     private static long EstimateOmittedChars(FileInfo file) => file.Length; // ASCII 日志里字节数≈字符数，估个量级就够
 
-    private static (string Text, int ReadChars, bool Partial)? ReadWindow(string path, bool fromEnd, int maxChars)
+    /// <summary>把相对路径锁在实例目录内；越界、绝对路径和敏感文件一律返回 null。</summary>
+    public static string? ResolveInstancePath(string root, string? relative)
     {
+        if (string.IsNullOrWhiteSpace(root)) return null;
+        var value = (relative ?? "").Trim().Replace('\\', '/').TrimStart('/');
+        if (value.Length == 0 || value.Contains(':') || value.Contains("..")) return null;
+        var rootFull = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var candidate = Path.GetFullPath(Path.Combine(rootFull, value));
+        if (!candidate.StartsWith(rootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            return null;
+        return IsSensitive(candidate) ? null : candidate;
+    }
+
+    private static readonly string[] SensitiveHints =
+        ["pcl" + Path.DirectorySeparatorChar + "config", ".jks", ".p12", ".pem", ".key", "instance.lock"];
+
+    private static bool IsSensitive(string path)
+    {
+        var lower = path.ToLowerInvariant();
+        foreach (var hint in SensitiveHints)
+            if (lower.Contains(hint.ToLowerInvariant(), StringComparison.Ordinal))
+                return true;
+
+        return false;
+    }
+
+    /// <summary>列目录；文件夹带结尾斜杠，方便模型继续往下钻。</summary>
+    public static IReadOnlyList<string> ListDirectory(string dir, int maxItems = 300)
+    {
+        try
+        {
+            var info = new DirectoryInfo(dir);
+            if (!info.Exists) return [];
+            List<string> names = [];
+            foreach (var child in info.EnumerateDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+                names.Add(child.Name + "/");
+            foreach (var file in info.EnumerateFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+                names.Add($"{file.Name}（{FormatLength(file.Length)}）");
+            return names.Take(Math.Max(1, maxItems)).ToList();
+        }
+        catch (Exception)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>读实例内的任意文件（同样只取头尾窗口）。</summary>
+    public static AssistantExcerpt? ReadFile(string root, string path, int budgetChars = DefaultBudgetChars)
+    {
+        if (!File.Exists(path)) return null;
+        var headChars = Math.Max(400, budgetChars * 3 / 5);
+        var head = ReadWindow(path, fromEnd: false, headChars);
+        if (head is null) return null;
+        var text = head.Value.Text;
+        if (head.Value.Partial)
+        {
+            var tail = ReadWindow(path, fromEnd: true, Math.Max(400, budgetChars - headChars));
+            if (tail is not null && tail.Value.Text.Length > 0)
+                text += $"\n…（中间省略约 {new FileInfo(path).Length - headChars - tail.Value.Text.Length} 字）…\n" +
+                        tail.Value.Text;
+        }
+
+        return new AssistantExcerpt(Relative(root, path), text, head.Value.ReadChars, head.Value.Partial);
+    }
+
+    private static string FormatLength(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        _ => $"{bytes / (1024.0 * 1024.0):F1} MB"
+    };
+
+    private static (string Text, int ReadChars, bool Partial)? ReadWindow(string path, bool fromEnd, int maxChars)    {
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
