@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
+using Markdig.Wpf;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
 using PCL.Core.Assistant;
@@ -17,19 +19,28 @@ public partial class PageChatRight
     // A response belongs to its session, not to whichever session happens to be selected later.
     private readonly Dictionary<string, CancellationTokenSource> _runs = new();
     private readonly HashSet<string> _discardDraftOnSwitch = new();
-    private TextBlock? _lastAssistantBubble;
+    private readonly DispatcherTimer _markdownTimer;
     private AssistantSession? _renderedSession;
     private string? _renderedSessionId;
+    private MarkdownViewer? _streamViewer;
+    private AssistantSession? _streamSession;
+    private int _streamIndex = -1;
+    private bool _streamDirty;
 
     public PageChatRight()
     {
         InitializeComponent();
-        CommandBindings.Add(new CommandBinding(Markdig.Wpf.Commands.Hyperlink, OpenMarkdownLink));
+        CommandBindings.Add(new CommandBinding(Commands.Hyperlink, OpenMarkdownLink));
         PageEnter += RenderCurrentSession;
         InputBar.SendRequested += text => _ = SendAsync(text);
         InputBar.StopRequested += StopCurrentSession;
         AssistantSessionStore.CurrentChanged += () => ModBase.RunInUi(HandleCurrentChanged);
+        // 每个 token 都重解析 Markdown 会明显掉帧，攒到 120ms 一次
+        _markdownTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+        _markdownTimer.Tick += (_, _) => FlushStreamMarkdown();
     }
+
+    public string InputDraftText => InputBar.DraftText;
 
     /// <summary>Starts a blank draft on the existing chat surface. Drafts are not history items.</summary>
     public void NewConversation()
@@ -38,14 +49,12 @@ public partial class PageChatRight
         if (current is null || AssistantSessionStore.IsPersisted(current) || current.Messages.Count > 0 ||
             !string.IsNullOrEmpty(InputBar.DraftText))
         {
-            // If this is an unsent draft, HandleCurrentChanged parks it in the separate Drafts list.
             AssistantSessionStore.StartNewDraft();
             return;
         }
+
         RenderCurrentSession();
     }
-
-    public string InputDraftText => InputBar.DraftText;
 
     public void DeleteSession(AssistantSession session)
     {
@@ -57,38 +66,37 @@ public partial class PageChatRight
             AssistantSessionStore.Delete(session);
             return;
         }
+
         AssistantSessionStore.DeleteDraft(session);
     }
 
     public void RenderCurrentSession()
     {
-        PanMessages.Children.Clear();
-        _lastAssistantBubble = null;
         var session = AssistantSessionStore.Current;
+        var switched = !string.Equals(_renderedSessionId, session?.Id, StringComparison.Ordinal);
+        PanMessages.Children.Clear();
+        _streamViewer = null;
         _renderedSession = session;
         _renderedSessionId = session?.Id;
         var messages = session?.Messages;
         TextEmpty.Visibility = messages is null || messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (messages is null)
+        if (messages is not null)
         {
-            UpdateInputState();
-            return;
+            var generating = _runs.ContainsKey(session!.Id);
+            for (var i = 0; i < messages.Count; i++)
+            {
+                var message = messages[i];
+                AppendBubble(
+                    message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
+                    message.Content,
+                    streamingTarget: message.Role == "assistant" && generating && i == messages.Count - 1);
+            }
         }
 
-        var generating = session is not null && _runs.ContainsKey(session.Id);
-        _lastAssistantBubble = null;
-        for (var i = 0; i < messages.Count; i++)
-        {
-            var message = messages[i];
-            var streaming = message.Role == "assistant" && generating && i == messages.Count - 1;
-            var bubble = AppendBubble(
-                message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
-                message.Content,
-                markdown: message.Role == "assistant" && !streaming);
-            if (streaming) _lastAssistantBubble = bubble;
-        }
         PanBack.ScrollToBottom();
         UpdateInputState();
+        // 换会话只是换数据，不走页面路由，因此手动重播一次进入动画
+        if (switched && IsLoaded && PageState == PageStates.ContentStay) PageOnContentExit();
     }
 
     private async Task SendAsync(string input)
@@ -122,6 +130,9 @@ public partial class PageChatRight
         var cts = new CancellationTokenSource();
         _runs[session.Id] = cts;
         if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
+        _streamSession = session;
+        _streamIndex = answerIndex;
+        _markdownTimer.Start();
         UpdateInputState();
 
         var response = new StringBuilder();
@@ -135,14 +146,7 @@ public partial class PageChatRight
                 {
                     response.Append(delta);
                     AssistantSessionStore.UpdateMessage(session, answerIndex, response.ToString());
-                    // Only paint into the view when it is still displaying this session.
-                    if (ReferenceEquals(AssistantSessionStore.Current, session) &&
-                        _renderedSessionId == session.Id && _lastAssistantBubble is not null &&
-                        _lastAssistantBubble.Parent is not null)
-                    {
-                        _lastAssistantBubble.Text = response.ToString();
-                        PanBack.ScrollToBottom();
-                    }
+                    _streamDirty = true;
                 }), cts.Token);
             response.Clear();
             response.Append(text);
@@ -163,15 +167,28 @@ public partial class PageChatRight
         }
         finally
         {
+            _markdownTimer.Stop();
+            FlushStreamMarkdown();
             AssistantSessionStore.CompleteAssistantMessage(session, answerIndex, response.ToString());
             if (_runs.TryGetValue(session.Id, out var active) && ReferenceEquals(active, cts))
                 _runs.Remove(session.Id);
             cts.Dispose();
+            _streamSession = null;
+            _streamIndex = -1;
             UpdateInputState();
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
         }
     }
 
+    private void FlushStreamMarkdown()
+    {
+        if (!_streamDirty) return;
+        _streamDirty = false;
+        if (_streamViewer is null || _streamSession is null) return;
+        if (_renderedSession != _streamSession || _streamIndex >= _streamSession.Messages.Count) return;
+        _streamViewer.Markdown = _streamSession.Messages[_streamIndex].Content;
+        PanBack.ScrollToBottom();
+    }
 
     private void HandleCurrentChanged()
     {
@@ -201,7 +218,9 @@ public partial class PageChatRight
     {
         var prompt = Lang.Text("Assistant.Chat.System");
         var instance = ModInstanceList.McMcInstanceSelected?.Name;
-        return string.IsNullOrWhiteSpace(instance) ? prompt : prompt + "\n" + Lang.Text("Assistant.Chat.System.Instance", instance);
+        return string.IsNullOrWhiteSpace(instance)
+            ? prompt
+            : prompt + "\n" + Lang.Text("Assistant.Chat.System.Instance", instance);
     }
 
     // AssistantClient awaits on the UI context. Report inline so deltas cannot be queued after
@@ -211,16 +230,25 @@ public partial class PageChatRight
         public void Report(T value) => handler(value);
     }
 
-    private TextBlock? AppendBubble(string roleKey, string text, bool markdown = false)
+    private void AppendBubble(string roleKey, string text, bool streamingTarget = false)
     {
         var card = new MyCard
         {
             Title = Lang.Text(roleKey),
             Margin = new Thickness(0, 0, 0, 10)
         };
-        if (markdown)
+        if (roleKey == "Assistant.Chat.RoleUser")
         {
-            var viewer = new Markdig.Wpf.MarkdownViewer
+            card.Children.Add(new TextBlock
+            {
+                Text = text,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(25, 40, 25, 20)
+            });
+        }
+        else
+        {
+            var viewer = new MarkdownViewer
             {
                 Markdown = text,
                 Margin = new Thickness(25, 40, 25, 20),
@@ -228,19 +256,10 @@ public partial class PageChatRight
             };
             viewer.SetResourceReference(Control.ForegroundProperty, "ColorBrush1");
             card.Children.Add(viewer);
-            PanMessages.Children.Add(card);
-            return null;
+            if (streamingTarget) _streamViewer = viewer;
         }
 
-        var block = new TextBlock
-        {
-            Text = text,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(25, 40, 25, 20)
-        };
-        card.Children.Add(block);
         PanMessages.Children.Add(card);
-        return block;
     }
 
     private static void OpenMarkdownLink(object sender, ExecutedRoutedEventArgs e)

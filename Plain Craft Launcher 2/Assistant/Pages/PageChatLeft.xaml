@@ -9,7 +9,7 @@
         <StackPanel x:Name="PanItem" Margin="0,12,0,0" Orientation="Vertical">
             <local:MyListItem x:Name="ItemNewChat" IsScaleAnimationEnabled="False" MinPaddingRight="20" Height="38"
                               VerticalAlignment="Top" Title="{DynamicResource Assistant.Left.NewChat}" Type="Clickable"
-                              Click="NewChatClick" LogoScale="0.9" SvgIcon="lucide/square-pen" />
+                              Click="NewChatClick" LogoScale="0.9" SvgIcon="lucide/circle-plus" />
             <TextBlock x:Name="LabDraftsHeader" Text="{DynamicResource Assistant.Left.Drafts}" Margin="13,13,5,3"
                        Opacity="0.6" FontSize="12" Visibility="Collapsed" />
             <StackPanel x:Name="PanDrafts" />

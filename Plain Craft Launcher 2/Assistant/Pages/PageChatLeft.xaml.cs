@@ -96,7 +96,7 @@ public partial class PageChatLeft
                 MinPaddingRight = 35,
                 IsScaleAnimationEnabled = false,
                 LogoScale = 0.9,
-                SvgIcon = "lucide/file-pen-line",
+                SvgIcon = "lucide/pencil",
                 Buttons = [delete]
             };
             item.Click += DraftClick;
@@ -124,7 +124,7 @@ public partial class PageChatLeft
                 MinPaddingRight = 35,
                 IsScaleAnimationEnabled = false,
                 LogoScale = 0.9,
-                SvgIcon = "lucide/message-square",
+                SvgIcon = "lucide/message-circle",
                 Buttons = [delete]
             };
             item.Check += HistoryCheck;
