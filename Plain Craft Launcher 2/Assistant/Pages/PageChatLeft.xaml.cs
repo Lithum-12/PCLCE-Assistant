@@ -23,19 +23,31 @@ public partial class PageChatLeft
 
     private void NewChatClick(object senderRaw, System.Windows.Input.MouseButtonEventArgs e)
     {
+        FlushDraftText();
         ((PageChatRight)PageGet(FormMain.PageSubType.AssistantChat)).NewConversation();
     }
 
     private void DraftClick(object senderRaw, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (((MyListItem)senderRaw).Tag is not AssistantSession draft) return;
+        FlushDraftText();
         AssistantSessionStore.Use(draft);
+    }
+
+    /// <summary>
+    /// 切换前把输入框内容写回当前会话，store 才能判断这条草稿该留还是该丢。
+    /// </summary>
+    private void FlushDraftText()
+    {
+        if (AssistantSessionStore.Current is { } current && AssistantPages.FrmChatRight is { } chat)
+            current.DraftText = chat.InputDraftText;
     }
 
     private void HistoryCheck(object senderRaw, ModBase.RouteEventArgs e)
     {
         if (!e.raiseByMouse) return;
         if (((MyListItem)senderRaw).Tag is not AssistantSession session) return;
+        FlushDraftText();
         AssistantSessionStore.Use(session);
         // Selecting history only changes the current session. It must not trigger page routing.
     }

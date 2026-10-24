@@ -45,6 +45,8 @@ public partial class PageChatRight
         RenderCurrentSession();
     }
 
+    public string InputDraftText => InputBar.DraftText;
+
     public void DeleteSession(AssistantSession session)
     {
         if (AssistantSessionStore.IsPersisted(session))
@@ -173,20 +175,9 @@ public partial class PageChatRight
 
     private void HandleCurrentChanged()
     {
-        var previous = _renderedSession;
-        if (previous is not null)
-        {
-            if (_discardDraftOnSwitch.Remove(previous.Id))
-            {
-                previous.DraftText = "";
-            }
-            else
-            {
-                previous.DraftText = InputBar.DraftText;
-                // Keep unsent content in a separate draft list; never disguise it as chat history.
-                AssistantSessionStore.ParkDraft(previous);
-            }
-        }
+        var deleted = _renderedSession is not null &&
+                      _discardDraftOnSwitch.Remove(_renderedSession.Id);
+        if (deleted && _renderedSession is not null) _renderedSession.DraftText = "";
 
         var current = AssistantSessionStore.Current;
         InputBar.DraftText = current?.DraftText ?? "";

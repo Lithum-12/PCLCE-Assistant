@@ -31,12 +31,40 @@ public sealed class AssistantSession
 /// </summary>
 public static class AssistantSessionStore
 {
-    private static readonly string StorePath = Path.Combine(Paths.Data, "assistant-sessions.json");
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
+    private static string? _storePath;
+    private static List<AssistantSession>? _sessions;
+    private static AssistantSession? _current;
+    private static bool _currentResolved;
 
-    public static List<AssistantSession> Sessions { get; } = Load();
+    /// <summary>
+    /// 路径与内容都惰性求值：静态构造里读 Paths 会让这段逻辑在测试宿主里不可用
+    /// （Basics 从入口程序集取 metadata.json，测试入口不是启动器）。
+    /// </summary>
+    public static string StorePath
+    {
+        get => _storePath ??= Path.Combine(Paths.Data, "assistant-sessions.json");
+        set => _storePath = value;
+    }
+
+    public static List<AssistantSession> Sessions => _sessions ??= Load();
     public static List<AssistantSession> Drafts { get; } = new();
-    public static AssistantSession? Current { get; private set; } = Sessions.FirstOrDefault();
+
+    public static AssistantSession? Current
+    {
+        get
+        {
+            if (_currentResolved) return _current;
+            _currentResolved = true;
+            _current ??= Sessions.Count > 0 ? Sessions[0] : null;
+            return _current;
+        }
+        private set
+        {
+            _current = value;
+            _currentResolved = true;
+        }
+    }
 
     /// <summary>Raised when the selected conversation (including an unpersisted draft) changes.</summary>
     public static event Action? CurrentChanged;
@@ -51,6 +79,7 @@ public static class AssistantSessionStore
 
     public static AssistantSession StartNewDraft()
     {
+        ParkCurrentDraft();
         var draft = new AssistantSession();
         Current = draft;
         CurrentChanged?.Invoke();
@@ -66,12 +95,32 @@ public static class AssistantSessionStore
     public static void Use(AssistantSession session)
     {
         if (ReferenceEquals(Current, session)) return;
-        var isHistory = Sessions.Contains(session);
-        var isDraft = Drafts.Remove(session);
-        if (!isHistory && !isDraft) return;
+        if (!Sessions.Contains(session) && !Drafts.Contains(session)) return;
+        ParkCurrentDraft();
+        // 草稿被选中时仍留在 Drafts 中，否则它离开列表就再也删不掉了
         Current = session;
-        if (isDraft) DraftsChanged?.Invoke();
         CurrentChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 离开的草稿：有未发送文字就留在草稿区，空的就直接丢掉，避免堆积删不掉的幽灵条目。
+    /// </summary>
+    private static void ParkCurrentDraft()
+    {
+        var previous = Current;
+        if (previous is null || Sessions.Contains(previous) || previous.Messages.Count > 0) return;
+        bool changed;
+        if (string.IsNullOrWhiteSpace(previous.DraftText))
+            changed = Drafts.Remove(previous);
+        else if (Drafts.Contains(previous))
+            changed = false;
+        else
+        {
+            Drafts.Insert(0, previous);
+            changed = true;
+        }
+
+        if (changed) DraftsChanged?.Invoke();
     }
 
     public static void ParkDraft(AssistantSession session)
@@ -85,7 +134,11 @@ public static class AssistantSessionStore
 
     public static void DeleteDraft(AssistantSession session)
     {
-        if (Drafts.Remove(session)) DraftsChanged?.Invoke();
+        var removed = Drafts.Remove(session);
+        var wasCurrent = ReferenceEquals(Current, session);
+        if (wasCurrent) Current = null;
+        if (removed) DraftsChanged?.Invoke();
+        if (wasCurrent) CurrentChanged?.Invoke();
     }
 
     /// <summary>Stores the first prompt, which promotes a draft into a real history item.</summary>
