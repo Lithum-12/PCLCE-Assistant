@@ -64,7 +64,7 @@ internal static class AssistantProjectCards
             _link = link;
             HasMouseAnimation = true;
             Cursor = System.Windows.Input.Cursors.Hand;
-            Margin = new Thickness(0, 4, 0, 8);
+            Margin = new Thickness(0, 2, 0, 6);
             ToolTip = link.Url;
             Title = "";
 
@@ -86,13 +86,13 @@ internal static class AssistantProjectCards
             head.Children.Add(_title);
             head.Children.Add(_slug);
 
-            var grid = new Grid { Margin = new Thickness(16, 12, 16, 12) };
+            var grid = new Grid { Margin = new Thickness(14, 9, 14, 9) };
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(20) });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(18) });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(19) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(17) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(15) });
             Grid.SetRowSpan(logoHost, 3);
             grid.Children.Add(logoHost);
             grid.Children.Add(head);
@@ -121,7 +121,7 @@ internal static class AssistantProjectCards
         private void Apply(AssistantProjectInfo info)
         {
             _title.Text = info.Title;
-            _slug.Text = info.Source;
+            _slug.Text = _link.Slug;
             _description.Text = info.Description;
             if (!string.IsNullOrEmpty(info.IconUrl)) _logo.Source = info.IconUrl;
             _meta.Children.Clear();
@@ -129,6 +129,8 @@ internal static class AssistantProjectCards
             AddMeta("lucide/download", info.Downloads > 0 ? Lang.CompactNumber(info.Downloads) : "");
             AddMeta("lucide/arrow-up-from-line",
                 info.UpdatedAt > DateTime.MinValue ? Lang.TimeSpan(info.UpdatedAt - DateTime.Now, 1) : "");
+            // 来源单独占一格，跟下载页那张列表条目一样，不然只有标题旁边一小截灰字看不出是哪站的
+            AddMeta("lucide/globe", info.Source);
         }
 
         private void AddMeta(string icon, string text)
@@ -137,7 +139,7 @@ internal static class AssistantProjectCards
             var group = new StackPanel
             {
                 Orientation = System.Windows.Controls.Orientation.Horizontal,
-                Margin = new Thickness(0, 0, 18, 0)
+                Margin = new Thickness(0, 0, 14, 0)
             };
             var svg = new SvgIcon
             {

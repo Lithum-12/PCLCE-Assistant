@@ -328,6 +328,7 @@ public partial class PageChatRight
                 ? [new AssistantSegment(false, text)]
                 : AssistantProjectCards.Split(text);
             FrameworkElement? firstContent = null;
+            FrameworkElement? lastContent = null;
             MarkdownViewer? streamViewer = null;
             foreach (var segment in segments)
             {
@@ -349,10 +350,15 @@ public partial class PageChatRight
                 }
 
                 element.Margin = new Thickness(25, firstContent is null ? 40 : 8, 25,
-                    element is MarkdownViewer ? 20 : 0);
+                    element is MarkdownViewer ? 12 : 0);
                 firstContent ??= element;
+                lastContent = element;
                 body.Children.Add(element);
             }
+
+            // 段与段之间贴紧，但气泡最后一段仍然留够 20 的下边距，跟用户气泡对齐
+            if (lastContent is MarkdownViewer tailViewer)
+                tailViewer.Margin = new Thickness(25, tailViewer.Margin.Top, 25, 20);
 
             // 状态条出现时正文往上贴，否则标题下面会空出一大截
             status.OnLayoutChanged = () =>
