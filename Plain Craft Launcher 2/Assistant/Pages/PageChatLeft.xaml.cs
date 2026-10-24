@@ -124,7 +124,7 @@ public partial class PageChatLeft
                 MinPaddingRight = 35,
                 IsScaleAnimationEnabled = false,
                 LogoScale = 0.9,
-                SvgIcon = "lucide/message-circle",
+                SvgIcon = "lucide/scroll-text",
                 Buttons = [delete]
             };
             item.Check += HistoryCheck;
