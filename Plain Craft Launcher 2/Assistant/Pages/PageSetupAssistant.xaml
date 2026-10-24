@@ -72,32 +72,19 @@
 
             <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Tools}">
                 <Grid Margin="25,40,25,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
-                        <ColumnDefinition Width="1*" />
-                    </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="28" />
                         <RowDefinition Height="9" />
                         <RowDefinition Height="28" />
-                        <RowDefinition Height="9" />
-                        <RowDefinition Height="28" />
                     </Grid.RowDefinitions>
-                    <local:MyCheckBox x:Name="CheckTools" Grid.Row="0" Grid.ColumnSpan="2" Height="22"
-                                      HorizontalAlignment="Left" VerticalAlignment="Center"
-                                      Text="{DynamicResource Setup.Assistant.Tools}"
+                    <local:MyCheckBox x:Name="CheckTools" Grid.Row="0" Height="22" HorizontalAlignment="Left"
+                                      VerticalAlignment="Center" Text="{DynamicResource Setup.Assistant.Tools}"
                                       ToolTip="{DynamicResource Setup.Assistant.Tools.Tip}"
                                       Change="CheckTools_OnChange" />
-                    <local:MyCheckBox x:Name="CheckRedact" Grid.Row="2" Grid.ColumnSpan="2" Height="22"
-                                      HorizontalAlignment="Left" VerticalAlignment="Center"
-                                      Text="{DynamicResource Setup.Assistant.Redact}"
+                    <local:MyCheckBox x:Name="CheckRedact" Grid.Row="2" Height="22" HorizontalAlignment="Left"
+                                      VerticalAlignment="Center" Text="{DynamicResource Setup.Assistant.Redact}"
                                       ToolTip="{DynamicResource Setup.Assistant.Redact.Tip}"
                                       Change="CheckRedact_OnChange" />
-                    <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left"
-                               Margin="0,0,25,0" Text="{DynamicResource Setup.Assistant.CurseForgeKey}" />
-                    <PasswordBox x:Name="TextCurseForgeKey" Grid.Row="4" Grid.Column="1"
-                                 ToolTip="{DynamicResource Setup.Assistant.CurseForgeKey.Tip}"
-                                 LostFocus="TextCurseForgeKey_LostFocus" />
                 </Grid>
             </local:MyCard>
         </StackPanel>

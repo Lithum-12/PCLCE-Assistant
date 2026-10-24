@@ -310,7 +310,8 @@ public partial class PageChatRight
     {
         var prompt = Lang.Text("Assistant.Chat.System");
         // CurseForge 的工具是按密钥挂载的，没挂载就得告诉模型别推荐那条路
-        if (!AssistantCurseForge.Available) prompt += "\n" + Lang.Text("Assistant.Chat.System.NoCurseForge");
+        if (string.IsNullOrWhiteSpace(Secrets.CurseForgeAPIKey))
+            prompt += "\n" + Lang.Text("Assistant.Chat.System.NoCurseForge");
         var instance = ModInstanceList.McMcInstanceSelected?.Name;
         return string.IsNullOrWhiteSpace(instance)
             ? prompt

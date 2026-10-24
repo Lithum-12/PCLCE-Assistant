@@ -33,12 +33,14 @@ internal sealed class AssistantToolset
     private const string NoInstance =
         "当前没有选中任何游戏实例。请在启动器的「实例」页选中一个实例后再问，或者先让用户选择实例。";
 
-    // 上游只有 release 构建才注入这枚 key，本地跑永远是空，所以缺它时要把"去哪申请、这次怎么办"讲清楚，
+    // 上游只在 CI 构建期注入这枚 key，正式构建之外它永远是空串——缺它时要把"为什么、这次怎么办"讲清楚，
     // 否则模型只会看到一个 403 然后开始编
     private const string NoCurseForgeKey =
-        "CurseForge 的接口需要一枚 API 密钥，本机还没有填。请让用户打开 设置 → AI 助手 → 工具与隐私 → CurseForge 密钥，" +
-        "粘贴在 https://console.curseforge.com/ 免费注册申请到的 key（填任意项目名和网址即可拿到），" +
-        "在那之前这轮先改用 search_modrinth。";
+        "这台机器上的启动器没有 CurseForge API 密钥（上游只在正式构建里注入，本地调试可以设 PCL_CURSEFORGE_API_KEY 环境变量），" +
+        "所以 search_curseforge 与 CurseForge 站点查阅都不可用。这轮先改用 search_modrinth，" +
+        "确实只有 CurseForge 才有某项资源时，直说查不到。";
+
+    private static bool HasCurseForgeKey => !string.IsNullOrWhiteSpace(Secrets.CurseForgeAPIKey);
 
     private readonly McInstance? _instance;
     private readonly List<string> _allowedSites;
@@ -136,7 +138,7 @@ internal sealed class AssistantToolset
                 ])
         ];
 
-        if (AssistantCurseForge.Available)
+        if (HasCurseForgeKey)
             defs.Add(new("search_curseforge",
                 "在 CurseForge 上搜索模组与整合包，返回名称、slug、下载量与简介。",
                 [
@@ -261,8 +263,8 @@ internal sealed class AssistantToolset
         string? apiKey = null;
         if (site.Id.Equals("curseforge", StringComparison.OrdinalIgnoreCase))
         {
-            if (!AssistantCurseForge.Available) return (NoCurseForgeKey, "未配置密钥", true);
-            apiKey = AssistantCurseForge.Key;
+            if (!HasCurseForgeKey) return (NoCurseForgeKey, "无密钥", true);
+            apiKey = Secrets.CurseForgeAPIKey;
         }
 
         var (body, error) = await AssistantWeb.GetAsync(url, apiKey, token);
@@ -360,7 +362,7 @@ internal sealed class AssistantToolset
     {
         var query = Args(args, "query");
         if (query.Length == 0) return ("缺少 query 参数，无法搜索。", "", true);
-        if (!AssistantCurseForge.Available) return (NoCurseForgeKey, "未配置密钥", true);
+        if (!HasCurseForgeKey) return (NoCurseForgeKey, "无密钥", true);
 
         var limit = Clamp(ToInt(Args(args, "limit"), DefaultResults), 1, 50);
         var type = Args(args, "project_type");
@@ -369,7 +371,7 @@ internal sealed class AssistantToolset
         if (known) url.Append("&classId=").Append(cls.ClassId);
         url.Append("&searchFilter=").Append(WebUtility.UrlEncode(query));
 
-        var (body, error) = await AssistantWeb.GetAsync(url.ToString(), AssistantCurseForge.Key, token);
+        var (body, error) = await AssistantWeb.GetAsync(url.ToString(), Secrets.CurseForgeAPIKey, token);
         if (body is null) return ($"CurseForge 搜索失败：{error}", "失败", true);
 
         try

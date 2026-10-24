@@ -118,10 +118,11 @@ public static class AssistantProjectLinks
 
     private static async Task<AssistantProjectInfo?> FetchCurseForgeAsync(string slug)
     {
-        // 没有 CurseForge 密钥时直接放弃卡片，聊天里保留普通链接
-        if (!AssistantCurseForge.Available) return null;
+        // 没有 CurseForge 密钥时直接放弃卡片，聊天里保留普通链接。
+        // 密钥走上游那套：CI 构建期注入，本地 Debug 可读 PCL_CURSEFORGE_API_KEY 环境变量
+        if (string.IsNullOrWhiteSpace(Secrets.CurseForgeAPIKey)) return null;
         var body = await GetAsync($"https://api.curseforge.com/v1/mods/search?gameId=432&pageSize=1&slug={Uri.EscapeDataString(slug)}",
-            AssistantCurseForge.Key);
+            Secrets.CurseForgeAPIKey);
         if (body is null) return null;
         return ParseCurseForgeHit(body);
     }

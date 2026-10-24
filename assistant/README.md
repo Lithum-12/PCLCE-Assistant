@@ -21,7 +21,6 @@
 | `PCL.Core/Assistant/AssistantErrors.cs` | 把服务商错误归成"密钥无效 / 余额不足 / 网络 / 服务商挂了"等可提示类别 |
 | `PCL.Core/Assistant/AssistantProjectLinks.cs` | 识别回答里的 Modrinth / CurseForge 链接并查回工程信息 |
 | `PCL.Core/Assistant/AssistantConfig.cs` | `Config.Assistant.*` 配置项，密钥走 `ConfigSource.SharedEncrypt` 加密存储 |
-| `PCL.Core/Assistant/AssistantCurseForge.cs` | CurseForge 密钥取值顺序：设置里自己填的 > 上游构建期注入的 |
 | `PCL.Core/Assistant/AssistantRegionBypass.cs` | 区域判定覆盖的实现，读 `AllowRestrictedFeatures` |
 
 助手气泡按 Markdown 渲染，直接复用上游已有的 `Markdig.Wpf.MarkdownViewer`；每条消息卡片用 `MyCard` 自带的 `CanSwap` 折叠，右上角另有复制按钮。
@@ -35,7 +34,7 @@ dotnet build "Plain Craft Launcher 2.slnx" -c Debug
 dotnet run --project "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -c Debug
 ```
 
-上游的 CurseForge API Key 等在 CI 里以构建期 secret 注入，本地跑永远是空串——所以助手额外读 设置 → AI 助手 → 工具与隐私 → CurseForge 密钥 里用户自己填的那一枚（`AssistantCurseForge.Key`：自己填的优先，其次才是构建期注入的）。没有密钥时 `search_curseforge` 不挂载、CurseForge 链接不生成卡片，`read_site` 会回一段"去哪申请、这次改用 Modrinth"的说明而不是干巴巴的 403。`api.curseforge.com` 在本机网络可直连，缺的只有 key。调试也可以用 `PCL_*` 环境变量。
+上游的 CurseForge API Key 等在 CI 里以构建期 secret 注入，本地 Debug 构建读到的是空串。`EnvironmentInterop.GetSecret` 在 `#if DEBUG` 下会改读 `PCL_CURSEFORGE_API_KEY` 环境变量（已实测：设了它 `Secrets.CurseForgeAPIKey` 就有值），所以本地想用 CurseForge 设这个变量即可，不在设置页里另开一格密钥。没有密钥时助手不硬闯：`search_curseforge` 不挂载、CurseForge 链接不生成卡片，`read_site` 与系统提示词一起改口成"这台机器查不到 CurseForge，先改用 Modrinth"，而不是丢给模型一个 403 让它自己编。`api.curseforge.com` 本机可直连（不带 key 与带假 key 都是 403 `Forbidden: API Key missing or invalid`），缺的只有 key。
 
 ## 区域限制说明
 

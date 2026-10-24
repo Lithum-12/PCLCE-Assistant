@@ -31,7 +31,7 @@ public static class AssistantSites
         new("liteloader", "LiteLoader", "dl.liteloader.com", "LiteLoader 版本表 /versions/versions.json。"),
         new("optifine", "OptiFine", "www.optifine.net", "OptiFine 官网（无公开 API，只能抓页面文本）。/downloads"),
         new("modrinth", "Modrinth", "api.modrinth.com", "Modrinth API。/v2/search?query=... 与 /v2/project/{slug}。"),
-        new("curseforge", "CurseForge", "api.curseforge.com", "CurseForge 核心 API（需要密钥：设置 → AI 助手 → 工具与隐私 → CurseForge 密钥）。/v1/mods/search?gameId=432&searchFilter=...")
+        new("curseforge", "CurseForge", "api.curseforge.com", "CurseForge 核心 API。/v1/mods/search?gameId=432&searchFilter=...（需要上游那枚构建期密钥，本地没有时这个站点会直接返回不可用）")
     ];
 
     public static AssistantSite? Find(string? id) =>
