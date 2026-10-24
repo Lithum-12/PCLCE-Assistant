@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using PCL.Core.App;
+using PCL.Core.App.Localization;
 using PCL.Core.Assistant;
 
 namespace PCL.Assistant;
@@ -10,6 +12,8 @@ namespace PCL.Assistant;
 public partial class PageSetupAssistant
 {
     private bool _loading;
+    private readonly Dictionary<string, (MyListItem Row, MyIconButton Toggle)> _siteRows =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public PageSetupAssistant()
     {
@@ -33,33 +37,74 @@ public partial class PageSetupAssistant
 
     private void LoadSites()
     {
+        _siteRows.Clear();
         PanSites.Children.Clear();
         foreach (var site in AssistantSites.All)
         {
-            var box = new MyCheckBox
+            var toggle = new MyIconButton { LogoScale = 1d, Tag = site.Id, SvgIcon = "lucide/circle-check" };
+            var row = new MyListItem
             {
-                Text = site.Label,
-                Tag = site.Id,
-                Height = 22,
-                Margin = new Thickness(0, 0, 0, 6),
-                ToolTip = site.Host + "\n" + site.Hint
+                Title = site.Label,
+                Height = 38,
+                MinPaddingRight = 35,
+                Type = MyListItem.CheckType.Clickable,
+                LogoScale = 0.9,
+                SvgIcon = SiteIcon(site.Id),
+                ToolTip = site.Host + "\n" + site.Hint,
+                Buttons = [toggle]
             };
-            box.SetChecked(AssistantSites.Allows(site.Id, Config.Assistant.AllowedSites), false);
-            box.Change += Site_OnChange;
-            PanSites.Children.Add(box);
+            // 整行可点，跟模组页一样不必精准去戳那个小图标
+            row.Click += (_, _) => ToggleSite(site.Id);
+            toggle.Click += (_, _) => ToggleSite(site.Id);
+            _siteRows[site.Id] = (row, toggle);
+            PanSites.Children.Add(row);
+        }
+
+        RefreshSites();
+    }
+
+    private void ToggleSite(string id)
+    {
+        var allowed = Config.Assistant.AllowedSites ?? [];
+        var enabled = AssistantSites.All.Where(s => AssistantSites.Allows(s.Id, allowed))
+            .Select(s => s.Id)
+            .ToList();
+        if (!enabled.Remove(id)) enabled.Add(id);
+        // 全关时写入哨兵：空列表在 AssistantSites 里表示"没配置过 = 默认全开"
+        Config.Assistant.AllowedSites = enabled.Count == 0 ? [AssistantSites.NoneMarker] : enabled;
+        RefreshSites();
+    }
+
+    private void RefreshSites()
+    {
+        var allowed = Config.Assistant.AllowedSites ?? [];
+        foreach (var (site, entry) in _siteRows)
+        {
+            var on = AssistantSites.Allows(site, allowed);
+            entry.Row.Opacity = on ? 1d : 0.55d;
+            // 图标与提示都表示"点下去会发生什么"，与实例设置→模组的启用/禁用一致
+            entry.Toggle.SvgIcon = on ? "lucide/circle-minus" : "lucide/circle-check";
+            entry.Toggle.ToolTip = Lang.Text(on ? "Instance.Resource.Disable" : "Instance.Resource.Enable");
         }
     }
 
-    private void Site_OnChange(object senderRaw, bool user)
+    private static string SiteIcon(string id) => id switch
     {
-        if (!user || ModAnimation.AniControlEnabled != 0) return;
-        var enabled = PanSites.Children.OfType<MyCheckBox>()
-            .Where(c => c.Checked == true && c.Tag is string)
-            .Select(c => (string)c.Tag!)
-            .ToList();
-        // 全关时写入哨兵，空列表在 AssistantSites 里表示"没配置过 = 默认全开"
-        Config.Assistant.AllowedSites = enabled.Count == 0 ? [AssistantSites.NoneMarker] : enabled;
-    }
+        "mcmod" => "lucide/book-marked",
+        "github" => "lucide/git-pull-request-arrow",
+        "modpackindex" => "lucide/boxes",
+        "mojang" => "lucide/earth",
+        "bmclapi" => "lucide/download",
+        "fabric" => "lucide/package",
+        "forge" => "lucide/hammer",
+        "neoforge" => "lucide/anvil",
+        "quilt" => "lucide/grid-2x2",
+        "liteloader" => "lucide/box",
+        "optifine" => "lucide/palette",
+        "modrinth" => "lucide/rocket",
+        "curseforge" => "lucide/tool-case",
+        _ => "lucide/globe"
+    };
 
     private void LoadProviders()
     {
