@@ -1,0 +1,10 @@
+<Project>
+
+  <!-- vsdbg（VS Code 的 .NET 调试器）不接受 full PDB，上游 csproj 里写死了 full，
+       这里只在本地 Debug 构建覆盖为 portable，不影响 CI/Beta/Release。 -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+</Project>

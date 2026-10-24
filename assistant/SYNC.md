@@ -16,6 +16,8 @@
 - `Plain Craft Launcher 2/Assistant/`
 - `assistant/`（本文档与工具）
 
+根目录另有一个新增文件 `Directory.Build.targets`：上游 csproj 把 `DebugType` 写死为 `full`，而 VS Code 的 vsdbg 只接受 `portable`，本地 Debug 构建在此覆盖（MSBuild 在项目体之后导入，能盖住 csproj；不碰上游文件）。
+
 上游项目使用通配编译项（`Compile Include="**\*.cs"`、`Page Include="**\*.xaml"`），新增文件与目录**不需要改 csproj**。
 
 ## 上游改动清单（哨兵 `[ASSISTANT]`）
