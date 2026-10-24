@@ -14,11 +14,21 @@
 
         <local:MyScrollViewer x:Name="PanBack" Grid.Row="0" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
-            <StackPanel x:Name="PanMessages" Margin="25,20,25,10">
-                <TextBlock x:Name="TextEmpty" Text="{DynamicResource Assistant.Chat.Empty}" TextWrapping="Wrap"
-                           Opacity="0.6" FontSize="13" Margin="0,0,0,10" />
-            </StackPanel>
+            <StackPanel x:Name="PanMessages" Margin="25,20,25,10" />
         </local:MyScrollViewer>
+
+        <local:MyCard x:Name="TextEmpty" Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Margin="40" MaxWidth="560" IsHitTestVisible="False">
+            <StackPanel Margin="20,17">
+                <TextBlock Margin="0,0,0,9" HorizontalAlignment="Center" FontSize="19"
+                           UseLayoutRounding="True" SnapsToDevicePixels="True"
+                           Foreground="{DynamicResource ColorBrush3}"
+                           Text="{DynamicResource Assistant.Home.Title}" />
+                <Rectangle HorizontalAlignment="Stretch" Height="2" Fill="{DynamicResource ColorBrush3}" />
+                <TextBlock Margin="10,10,10,0" TextWrapping="Wrap"
+                           Text="{DynamicResource Assistant.Chat.Empty}" />
+            </StackPanel>
+        </local:MyCard>
 
         <assistant:AssistantInputBar x:Name="InputBar" Grid.Row="1" Margin="25,0,25,18" />
     </Grid>

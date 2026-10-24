@@ -59,7 +59,6 @@ public partial class PageChatRight
     public void RenderCurrentSession()
     {
         PanMessages.Children.Clear();
-        PanMessages.Children.Add(TextEmpty);
         _lastAssistantBubble = null;
         var session = AssistantSessionStore.Current;
         _renderedSession = session;
