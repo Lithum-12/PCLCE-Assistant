@@ -316,30 +316,58 @@ public partial class PageChatRight
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(25, 40, 25, 20)
             };
-            card.Tag = card.SwapControl;
+            card.Tag = new BubbleSource(session, index);
         }
         else
         {
-            var viewer = new MarkdownViewer
-            {
-                Markdown = text,
-                Margin = new Thickness(25, 40, 25, 20),
-                FontWeight = FontWeights.Normal
-            };
-            viewer.SetResourceReference(Control.ForegroundProperty, "ColorBrush1");
             var status = new AssistantStatusPanel { Margin = new Thickness(25, 40, 25, 0) };
-            // 状态条出现时正文往上贴，否则标题下面会空出一大截
-            status.OnLayoutChanged = () => viewer.Margin = status.Visibility == Visibility.Visible
-                ? new Thickness(25, 6, 25, 20)
-                : new Thickness(25, 40, 25, 20);
             var body = new StackPanel();
             body.Children.Add(status);
-            body.Children.Add(viewer);
+            // 流式期间只画正文，否则每个增量都要重新联网查一遍卡片
+            List<AssistantSegment> segments = streamingTarget
+                ? [new AssistantSegment(false, text)]
+                : AssistantProjectCards.Split(text);
+            FrameworkElement? firstContent = null;
+            MarkdownViewer? streamViewer = null;
+            foreach (var segment in segments)
+            {
+                FrameworkElement element;
+                if (segment.IsCard)
+                {
+                    element = BuildProjectCard(segment.Text);
+                }
+                else
+                {
+                    var viewer = new MarkdownViewer
+                    {
+                        Markdown = segment.Text,
+                        FontWeight = FontWeights.Normal
+                    };
+                    viewer.SetResourceReference(Control.ForegroundProperty, "ColorBrush1");
+                    streamViewer ??= viewer;
+                    element = viewer;
+                }
+
+                element.Margin = new Thickness(25, firstContent is null ? 40 : 8, 25,
+                    element is MarkdownViewer ? 20 : 0);
+                firstContent ??= element;
+                body.Children.Add(element);
+            }
+
+            // 状态条出现时正文往上贴，否则标题下面会空出一大截
+            status.OnLayoutChanged = () =>
+            {
+                if (firstContent is null) return;
+                firstContent.Margin = status.Visibility == Visibility.Visible
+                    ? new Thickness(25, 6, 25, firstContent.Margin.Bottom)
+                    : new Thickness(25, 40, 25, firstContent.Margin.Bottom);
+            };
+
             card.SwapControl = body;
-            card.Tag = viewer;
+            card.Tag = new BubbleSource(session, index);
             if (streamingTarget)
             {
-                _streamViewer = viewer;
+                _streamViewer = streamViewer;
                 _streamStatus = status;
             }
         }
@@ -366,12 +394,38 @@ public partial class PageChatRight
 
     /// <summary>复制取当前正文而不是建卡时的快照：助手气泡在流式期间会一直变。</summary>
     private static string BubbleText(MyCard card) =>
-        card.Tag switch
+        card.Tag is BubbleSource(var source, var index) && index < source.Messages.Count
+            ? source.Messages[index].Content
+            : "";
+
+    /// <summary>回答里出现的资源链接换成上游的资源条目控件。</summary>
+    private static MyCompItem BuildProjectCard(string url)
+    {
+        var link = AssistantProjectCards.Parse(url);
+        var item = new MyCompItem
         {
-            MarkdownViewer viewer => viewer.Markdown ?? "",
-            TextBlock block => block.Text ?? "",
-            _ => ""
+            ShowDownloadBtn = false,
+            ShowFavoriteBtn = false,
+            Title = link?.Slug ?? url,
+            Description = url,
+            Cursor = Cursors.Hand
         };
+        if (link is null) return item;
+
+        item.Click += async (_, _) => await AssistantProjectCards.OpenAsync(link);
+        _ = FillCardAsync(item, link);
+        return item;
+    }
+
+    private static async Task FillCardAsync(MyCompItem item, AssistantProjectLink link)
+    {
+        var info = await AssistantProjectCards.FetchAsync(link);
+        if (info is null) return;
+        // 联网回填时这一版气泡可能已经被重建掉了，控件本身脱离视觉树也不会报错，只是看不见
+        ModBase.RunInUi(() => AssistantProjectCards.Apply(item, link, info));
+    }
+
+    private sealed record BubbleSource(AssistantSession Session, int Index);
 
     private void RecordCollapse(AssistantSession session, int index, MyCard card)
     {

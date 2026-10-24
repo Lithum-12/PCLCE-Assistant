@@ -257,9 +257,10 @@ internal sealed class AssistantToolset
                 var name = Str(item, "name");
                 var slug = Str(item, "slug");
                 var summary = Shorten(Str(item, "summary"), 120);
-                builder.Append("- ").Append(name).Append("（slug=").Append(slug)
-                    .Append("，下载 ").Append(Str(item, "downloadCount")).Append("）")
-                    .Append(string.IsNullOrEmpty(summary) ? "" : $"：{summary}").Append('\n');
+                builder.Append("- ").Append(name)
+                    .Append("（下载 ").Append(Str(item, "downloadCount")).Append("）")
+                    .Append(string.IsNullOrEmpty(summary) ? "" : $"：{summary}")
+                    .Append($"\n  页面 https://www.curseforge.com/minecraft/mc-mods/{slug}").Append('\n');
             }
 
             AddTrace($"CurseForge 搜索 “{query}”");
@@ -282,8 +283,11 @@ internal sealed class AssistantToolset
         var categories = hit.TryGetProperty("categories", out var c) && c.ValueKind == JsonValueKind.Array
             ? string.Join("/", c.EnumerateArray().Select(x => x.GetString()).Where(x => !string.IsNullOrEmpty(x)).Take(4))
             : "";
-        return $"{Str(hit, "title")}（{Str(hit, "project_type")}，slug={Str(hit, "slug")}，下载 {Str(hit, "downloads")}，" +
-               $"{versionText}{(categories.Length == 0 ? "" : "，分类 " + categories)}）：" + Shorten(Str(hit, "description"), 120);
+        // 页面链接单独一行原样给出：聊天页会把它渲染成可点开的资源卡片
+        var type = Str(hit, "project_type");
+        return $"{Str(hit, "title")}（{type}，下载 {Str(hit, "downloads")}，{versionText}" +
+               $"{(categories.Length == 0 ? "" : "，分类 " + categories)}）：" + Shorten(Str(hit, "description"), 120) +
+               $"\n  页面 https://modrinth.com/{type}/{Str(hit, "slug")}";
     }
 
     private static string? BuildModrinthFacets(string version, string projectType)
