@@ -63,7 +63,7 @@ internal sealed class AssistantStatusPanel : StackPanel
     {
         if (!_rows.TryGetValue(token, out var row)) return;
         row.Active = false;
-        row.Icon.Opacity = 1d;
+        row.Line.Opacity = 1d;
         row.Icon.Icon = ok ? "circle-check" : "triangle-alert";
         row.Text.Text = note.Length == 0 ? row.Base : $"{row.Base} · {note}";
         Refresh();
@@ -73,9 +73,9 @@ internal sealed class AssistantStatusPanel : StackPanel
     {
         var svg = new SvgIcon
         {
-            Width = 14,
-            Height = 14,
-            Margin = new Thickness(0, 0, 8, 0),
+            Width = 16,
+            Height = 16,
+            Margin = new Thickness(0, 0, 7, 0),
             VerticalAlignment = VerticalAlignment.Center,
             Icon = icon
         };
@@ -83,7 +83,7 @@ internal sealed class AssistantStatusPanel : StackPanel
         var label = new TextBlock
         {
             VerticalAlignment = VerticalAlignment.Center,
-            FontSize = 12.5,
+            FontSize = 14,
             Text = text,
             TextWrapping = TextWrapping.Wrap
         };
@@ -116,8 +116,8 @@ internal sealed class AssistantStatusPanel : StackPanel
         {
             if (!row.Active) continue;
             busy = true;
-            // 图标呼吸 + 尾巴上的点，合起来就是"这件事还在做"
-            row.Icon.Opacity = IdleOpacity + 0.6d * Math.Abs(Math.Sin(_phase * 0.4d));
+            // 图标和文字一起呼吸，比只闪图标更像"这一行在动"
+            row.Line.Opacity = IdleOpacity + 0.6d * Math.Abs(Math.Sin(_phase * 0.4d));
             row.Text.Text = row.Base + new string('.', _phase % 4);
         }
 
