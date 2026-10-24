@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
 using PCL.Core.Assistant;
@@ -23,6 +24,7 @@ public partial class PageChatRight
     public PageChatRight()
     {
         InitializeComponent();
+        CommandBindings.Add(new CommandBinding(Markdig.Wpf.Commands.Hyperlink, OpenMarkdownLink));
         PageEnter += RenderCurrentSession;
         InputBar.SendRequested += text => _ = SendAsync(text);
         InputBar.StopRequested += StopCurrentSession;
@@ -71,12 +73,17 @@ public partial class PageChatRight
             return;
         }
 
-        foreach (var message in messages)
+        var generating = session is not null && _runs.ContainsKey(session.Id);
+        _lastAssistantBubble = null;
+        for (var i = 0; i < messages.Count; i++)
         {
+            var message = messages[i];
+            var streaming = message.Role == "assistant" && generating && i == messages.Count - 1;
             var bubble = AppendBubble(
                 message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
-                message.Content);
-            if (message.Role == "assistant") _lastAssistantBubble = bubble;
+                message.Content,
+                markdown: message.Role == "assistant" && !streaming);
+            if (streaming) _lastAssistantBubble = bubble;
         }
         PanBack.ScrollToBottom();
         UpdateInputState();
@@ -213,13 +220,27 @@ public partial class PageChatRight
         public void Report(T value) => handler(value);
     }
 
-    private TextBlock AppendBubble(string roleKey, string text)
+    private TextBlock? AppendBubble(string roleKey, string text, bool markdown = false)
     {
         var card = new MyCard
         {
             Title = Lang.Text(roleKey),
             Margin = new Thickness(0, 0, 0, 10)
         };
+        if (markdown)
+        {
+            var viewer = new Markdig.Wpf.MarkdownViewer
+            {
+                Markdown = text,
+                Margin = new Thickness(25, 40, 25, 20),
+                FontWeight = FontWeights.Normal
+            };
+            viewer.SetResourceReference(Control.ForegroundProperty, "ColorBrush1");
+            card.Children.Add(viewer);
+            PanMessages.Children.Add(card);
+            return null;
+        }
+
         var block = new TextBlock
         {
             Text = text,
@@ -229,5 +250,14 @@ public partial class PageChatRight
         card.Children.Add(block);
         PanMessages.Children.Add(card);
         return block;
+    }
+
+    private static void OpenMarkdownLink(object sender, ExecutedRoutedEventArgs e)
+    {
+        var url = e.Parameter?.ToString();
+        if (string.IsNullOrWhiteSpace(url)) return;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+            uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return;
+        ModBase.OpenWebsite(url);
     }
 }
