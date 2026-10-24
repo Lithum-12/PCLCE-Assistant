@@ -74,9 +74,10 @@ public class AssistantSitesAndFilesTest
             var leadingSlash = AssistantLocalReader.ResolveInstancePath(root, "/etc/passwd");
             Assert.IsTrue(leadingSlash!.StartsWith(Path.GetFullPath(root).TrimEnd('\\', '/'),
                 StringComparison.OrdinalIgnoreCase));
-            // 启动器自己写的配置里可能有别的东西，不允许模型读
-            Assert.IsNull(AssistantLocalReader.ResolveInstancePath(root,
-                Path.Combine("PCL", "config.v1.yml").Replace('\\', '/')));
+            // 启动器在实例目录下写的 PCL/ 里有 LatestLaunch.bat（含 accessToken）与配置，全部拒绝
+            Assert.IsNull(AssistantLocalReader.ResolveInstancePath(root, "PCL/config.v1.yml"));
+            Assert.IsNull(AssistantLocalReader.ResolveInstancePath(root, "PCL/LatestLaunch.bat"));
+            Assert.IsNull(AssistantLocalReader.ResolveInstancePath(root, "server.keystore"));
         }
         finally
         {

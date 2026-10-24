@@ -139,8 +139,12 @@ public static class AssistantLocalReader
         return IsSensitive(candidate) ? null : candidate;
     }
 
+    // 实例目录下的 PCL 子目录里有 LatestLaunch.bat（带 accessToken 与玩家身份）和启动器配置，
+    // 一律不给模型读；密钥库类文件同理
     private static readonly string[] SensitiveHints =
-        ["pcl" + Path.DirectorySeparatorChar + "config", ".jks", ".p12", ".pem", ".key", "instance.lock"];
+    [
+        "pcl" + Path.DirectorySeparatorChar, ".jks", ".p12", ".pem", ".key", ".env", "instance.lock"
+    ];
 
     private static bool IsSensitive(string path)
     {
