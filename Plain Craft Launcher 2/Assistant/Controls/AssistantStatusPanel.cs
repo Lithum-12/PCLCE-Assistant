@@ -39,7 +39,7 @@ internal sealed class AssistantStatusPanel : StackPanel
         else
             _thinking.Base = text;
         _thinking.Active = true;
-        _thinking.Icon.Icon = "sparkles";
+        _thinking.Icon.Icon = "lucide/sparkles";
         _thinking.Text.Text = text;
         Refresh();
     }
@@ -64,7 +64,7 @@ internal sealed class AssistantStatusPanel : StackPanel
         if (!_rows.TryGetValue(token, out var row)) return;
         row.Active = false;
         row.Line.Opacity = 1d;
-        row.Icon.Icon = ok ? "circle-check" : "triangle-alert";
+        row.Icon.Icon = ok ? "lucide/circle-check" : "lucide/triangle-alert";
         row.Text.Text = note.Length == 0 ? row.Base : $"{row.Base} · {note}";
         Refresh();
     }
@@ -77,7 +77,7 @@ internal sealed class AssistantStatusPanel : StackPanel
             Height = 16,
             Margin = new Thickness(0, 0, 7, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            Icon = icon
+            Icon = "lucide/" + icon
         };
         svg.SetResourceReference(SvgIcon.IconBrushProperty, "ColorBrush4");
         var label = new TextBlock

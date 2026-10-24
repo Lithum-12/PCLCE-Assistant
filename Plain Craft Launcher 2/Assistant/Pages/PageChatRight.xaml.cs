@@ -398,32 +398,11 @@ public partial class PageChatRight
             ? source.Messages[index].Content
             : "";
 
-    /// <summary>回答里出现的资源链接换成上游的资源条目控件。</summary>
-    private static MyCompItem BuildProjectCard(string url)
-    {
-        var link = AssistantProjectCards.Parse(url);
-        var item = new MyCompItem
-        {
-            ShowDownloadBtn = false,
-            ShowFavoriteBtn = false,
-            Title = link?.Slug ?? url,
-            Description = url,
-            Cursor = Cursors.Hand
-        };
-        if (link is null) return item;
-
-        item.Click += async (_, _) => await AssistantProjectCards.OpenAsync(link);
-        _ = FillCardAsync(item, link);
-        return item;
-    }
-
-    private static async Task FillCardAsync(MyCompItem item, AssistantProjectLink link)
-    {
-        var info = await AssistantProjectCards.FetchAsync(link);
-        if (info is null) return;
-        // 联网回填时这一版气泡可能已经被重建掉了，控件本身脱离视觉树也不会报错，只是看不见
-        ModBase.RunInUi(() => AssistantProjectCards.Apply(item, link, info));
-    }
+    /// <summary>回答里出现的资源链接换成卡片；解析失败时退回普通文字。</summary>
+    private static FrameworkElement BuildProjectCard(string url) =>
+        AssistantProjectCards.Parse(url) is { } link
+            ? AssistantProjectCards.Create(link)
+            : new TextBlock { Text = url, TextWrapping = TextWrapping.Wrap };
 
     private sealed record BubbleSource(AssistantSession Session, int Index);
 
