@@ -104,6 +104,10 @@ internal static class AssistantStrings
             回答保持简洁。
             """,
         ["Assistant.Chat.System.Instance"] = "当前选中的游戏实例：{0}",
+        ["Assistant.Chat.System.NoCurseForge"] =
+            "【本机没有 CurseForge 密钥】search_curseforge 与 CurseForge 站点查阅这次没有挂载，CurseForge 链接也不会变成卡片。" +
+            "请一律优先给 Modrinth、MC 百科、ModpackIndex 这些不需要代理的来源；确实只有 CurseForge 才有某项资源时，" +
+            "让用户去 设置 → AI 助手 → 工具与隐私 → CurseForge 密钥 填一枚（console.curseforge.com 免费注册就能拿到）。",
         ["Assistant.Chat.Tools.Rejected"] = "当前模型不接受工具调用，本次按普通对话回答。",
         ["Setup.Left.Item.Assistant"] = "AI 助手",
         ["Setup.Assistant.Card.Main"] = "AI 助手",
@@ -123,6 +127,8 @@ internal static class AssistantStrings
         ["Setup.Assistant.Tools.Tip"] = "模型可调用只读工具：崩溃报告、latest.log、mods 列表、Modrinth / CurseForge 搜索。关闭后只能纯聊天。",
         ["Setup.Assistant.Redact"] = "发送前脱敏本地内容",
         ["Setup.Assistant.Redact.Tip"] = "刮掉 Windows 用户名与完整路径、IP、UUID、坐标、种子与账号名。关闭后本地内容原文发给服务商。",
+        ["Setup.Assistant.CurseForgeKey"] = "CurseForge 密钥",
+        ["Setup.Assistant.CurseForgeKey.Tip"] = "上游只在正式构建里注入这枚密钥，本地构建得自己填：在 https://console.curseforge.com/ 免费注册，项目名和网址随便写就能拿到。留空时 CurseForge 搜索、站点查阅与资源卡片都不可用。",
         ["Setup.Assistant.Region"] = "放行被上游按区域禁用的功能",
         ["Setup.Assistant.Region.Tip"] = "上游自 2.15.1 起依据系统区域信息禁用下载、安装与整合包功能。本 fork 默认放行，关闭后恢复上游判定。"
     };
@@ -184,6 +190,11 @@ internal static class AssistantStrings
             Keep answers short.
             """,
         ["Assistant.Chat.System.Instance"] = "Currently selected instance: {0}",
+        ["Assistant.Chat.System.NoCurseForge"] =
+            "[No CurseForge key on this machine] search_curseforge and CurseForge site reads are not attached this run, " +
+            "and CurseForge links will not render as cards. Prefer Modrinth, mcmod.cn and ModpackIndex, which need no proxy; " +
+            "when something really is only on CurseForge, tell the user to paste a key in Settings → AI Assistant → Tools & privacy → CurseForge key " +
+            "(one is free at console.curseforge.com).",
         ["Assistant.Chat.Tools.Rejected"] = "This model does not accept tool calls, so the answer came from plain chat.",
         ["Setup.Left.Item.Assistant"] = "AI Assistant",
         ["Setup.Assistant.Card.Main"] = "AI Assistant",
@@ -203,6 +214,8 @@ internal static class AssistantStrings
         ["Setup.Assistant.Tools.Tip"] = "The model may call read-only tools: crash reports, latest.log, mods list, Modrinth / CurseForge search.",
         ["Setup.Assistant.Redact"] = "Redact local content before sending",
         ["Setup.Assistant.Redact.Tip"] = "Strips Windows user name and full paths, IPs, UUIDs, coordinates, seeds and the account name. Turning this off sends local content as-is.",
+        ["Setup.Assistant.CurseForgeKey"] = "CurseForge key",
+        ["Setup.Assistant.CurseForgeKey.Tip"] = "Upstream only injects this key into release builds, so a local build needs your own. Register for free at https://console.curseforge.com/ - any project name and URL work. CurseForge search, site reads and cards stay off while it is empty.",
         ["Setup.Assistant.Region"] = "Allow features upstream gates by region",
         ["Setup.Assistant.Region.Tip"] = "Since 2.15.1 upstream disables download, install and modpack features by system region. This fork allows them by default."
     };

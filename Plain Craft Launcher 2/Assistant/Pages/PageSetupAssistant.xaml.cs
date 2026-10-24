@@ -29,6 +29,7 @@ public partial class PageSetupAssistant
         CheckRedact.SetChecked(Config.Assistant.RedactLocalContent, false);
         TextModel.Text = Config.Assistant.ModelName;
         TextApiKey.Password = Config.Assistant.ApiKey;
+        TextCurseForgeKey.Password = Config.Assistant.CurseForgeKey;
         TextBaseUrl.Text = Config.Assistant.ApiBaseUrl;
         LoadProviders();
         LoadSites();
@@ -167,6 +168,13 @@ public partial class PageSetupAssistant
     {
         var key = TextApiKey.Password.Trim();
         if (key != Config.Assistant.ApiKey) Config.Assistant.ApiKey = key;
+    }
+
+    private void TextCurseForgeKey_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var key = TextCurseForgeKey.Password.Trim();
+        // 工具清单是每次发送时按"有没有 key"重建的，写完不用通知别的地方
+        if (key != Config.Assistant.CurseForgeKey) Config.Assistant.CurseForgeKey = key;
     }
 
     private void CheckEnabled_OnChange(object senderRaw, bool user)

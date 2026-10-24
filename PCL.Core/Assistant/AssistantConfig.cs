@@ -26,6 +26,9 @@ public static partial class Config
         // 本地文件内容发出去之前先刮掉用户名、IP、坐标等，关掉它等于允许原文外发
         [ConfigItem<bool>("AssistantRedactLocal", true)] public partial bool RedactLocalContent { get; set; }
 
+        // 上游把 CurseForge 密钥当构建期 secret 注入，本地跑就没有；留一个自己能填的位置
+        [ConfigItem<string>("AssistantCurseForgeKey", "", ConfigSource.SharedEncrypt)] public partial string CurseForgeKey { get; set; }
+
         // AI 允许联网查阅哪些站点；空列表 = 没配置过（按默认全开），["none"] = 全部关掉
         [AnyConfigItem<List<string>>("AssistantAllowedSites")] public partial List<string> AllowedSites { get; set; }
     }

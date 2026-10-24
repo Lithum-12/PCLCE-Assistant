@@ -119,9 +119,9 @@ public static class AssistantProjectLinks
     private static async Task<AssistantProjectInfo?> FetchCurseForgeAsync(string slug)
     {
         // 没有 CurseForge 密钥时直接放弃卡片，聊天里保留普通链接
-        if (string.IsNullOrWhiteSpace(Secrets.CurseForgeAPIKey)) return null;
+        if (!AssistantCurseForge.Available) return null;
         var body = await GetAsync($"https://api.curseforge.com/v1/mods/search?gameId=432&pageSize=1&slug={Uri.EscapeDataString(slug)}",
-            Secrets.CurseForgeAPIKey);
+            AssistantCurseForge.Key);
         if (body is null) return null;
         try
         {
