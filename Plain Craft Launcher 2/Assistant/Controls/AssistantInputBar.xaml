@@ -4,7 +4,7 @@
              xmlns:local="clr-namespace:PCL"
              xmlns:svgIcon="clr-namespace:PCL.Core.UI.Controls.SvgIcon;assembly=PCL.Core">
     <StackPanel>
-        <local:MyCard HasMouseAnimation="False">
+        <local:MyCard x:Name="CardInput" HasMouseAnimation="False">
             <Grid>
                 <local:MyTextBox x:Name="TextChatInput" HasBackground="False" BorderThickness="0"
                                  Padding="34,11,74,11" MinHeight="46" MaxHeight="170" FontSize="13.5"
@@ -20,7 +20,7 @@
             </Grid>
         </local:MyCard>
 
-        <local:MyCard HasMouseAnimation="False" Margin="0,10,0,0">
+        <local:MyCard x:Name="CardFooter" HasMouseAnimation="False" Margin="0,10,0,0">
             <Grid Margin="12,8,12,8" Height="28">
                 <local:MyIconTextButton x:Name="BtnInstance" HorizontalAlignment="Left" VerticalAlignment="Center"
                                         Text="{DynamicResource Assistant.Chat.SelectInstance}"

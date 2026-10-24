@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Markdig.Wpf;
 using PCL.Core.App;
@@ -19,6 +20,8 @@ public partial class PageChatRight
     // A response belongs to its session, not to whichever session happens to be selected later.
     private readonly Dictionary<string, CancellationTokenSource> _runs = new();
     private readonly HashSet<string> _discardDraftOnSwitch = new();
+    // 折叠状态只活在渲染层：重建气泡（流式结束、切回会话）时按消息序号还原，否则卡片会全部弹回展开。
+    private readonly Dictionary<string, HashSet<int>> _collapsed = new();
     private readonly DispatcherTimer _markdownTimer;
     private AssistantSession? _renderedSession;
     private string? _renderedSessionId;
@@ -58,6 +61,7 @@ public partial class PageChatRight
 
     public void DeleteSession(AssistantSession session)
     {
+        _collapsed.Remove(session.Id);
         if (AssistantSessionStore.IsPersisted(session))
         {
             if (_runs.TryGetValue(session.Id, out var cts)) cts.Cancel();
@@ -83,20 +87,22 @@ public partial class PageChatRight
         if (messages is not null)
         {
             var generating = _runs.ContainsKey(session!.Id);
+            _collapsed.TryGetValue(session.Id, out var collapsed);
             for (var i = 0; i < messages.Count; i++)
             {
                 var message = messages[i];
-                AppendBubble(
+                AppendBubble(session, i,
                     message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
                     message.Content,
-                    streamingTarget: message.Role == "assistant" && generating && i == messages.Count - 1);
+                    streamingTarget: message.Role == "assistant" && generating && i == messages.Count - 1,
+                    collapsed);
             }
         }
 
         PanBack.ScrollToBottom();
         UpdateInputState();
         // 换会话只是换数据，不走页面路由，因此手动重播一次进入动画
-        if (switched && IsLoaded && PageState == PageStates.ContentStay) PageOnContentExit();
+        if (switched && IsLoaded && PageState == PageStates.ContentStay) ReplayEnterAnimation();
     }
 
     private async Task SendAsync(string input)
@@ -230,21 +236,24 @@ public partial class PageChatRight
         public void Report(T value) => handler(value);
     }
 
-    private void AppendBubble(string roleKey, string text, bool streamingTarget = false)
+    private void AppendBubble(AssistantSession session, int index, string roleKey, string text,
+        bool streamingTarget, HashSet<int> collapsed)
     {
+        // 折叠直接复用 MyCard 自带的 CanSwap：右上角箭头 + 40px 标题行是上游控件的既有度量。
         var card = new MyCard
         {
             Title = Lang.Text(roleKey),
-            Margin = new Thickness(0, 0, 0, 10)
+            Margin = new Thickness(0, 0, 0, 10),
+            CanSwap = true
         };
         if (roleKey == "Assistant.Chat.RoleUser")
         {
-            card.Children.Add(new TextBlock
+            card.SwapControl = new TextBlock
             {
                 Text = text,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(25, 40, 25, 20)
-            });
+            };
         }
         else
         {
@@ -255,11 +264,82 @@ public partial class PageChatRight
                 FontWeight = FontWeights.Normal
             };
             viewer.SetResourceReference(Control.ForegroundProperty, "ColorBrush1");
-            card.Children.Add(viewer);
+            card.SwapControl = viewer;
             if (streamingTarget) _streamViewer = viewer;
         }
 
+        card.Children.Add(card.SwapControl);
+        if (collapsed?.Contains(index) == true) card.IsSwapped = true;
+
+        var btnCopy = new MyIconButton
+        {
+            SvgIcon = "lucide/copy",
+            Height = 16,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            // 让开右上角的折叠箭头（Right 16 + 宽 10）
+            Margin = new Thickness(0, 12, 34, 0),
+            ToolTip = Lang.Text("Assistant.Chat.Copy")
+        };
+        btnCopy.Click += (_, _) => ModBase.ClipboardSet(BubbleText(card));
+        card.Children.Add(btnCopy);
+
+        card.Swap += (_, _) => RecordCollapse(session, index, card);
         PanMessages.Children.Add(card);
+    }
+
+    /// <summary>复制取当前正文而不是建卡时的快照：助手气泡在流式期间会一直变。</summary>
+    private static string BubbleText(MyCard card) =>
+        card.SwapControl switch
+        {
+            MarkdownViewer viewer => viewer.Markdown ?? "",
+            TextBlock block => block.Text ?? "",
+            _ => ""
+        };
+
+    private void RecordCollapse(AssistantSession session, int index, MyCard card)
+    {
+        if (!_collapsed.TryGetValue(session.Id, out var set)) _collapsed[session.Id] = set = new HashSet<int>();
+        if (card.IsSwapped) set.Add(index);
+        else set.Remove(index);
+    }
+
+    /// <summary>
+    ///     重播本页的逐个进入动画。上游的 GetAllAnimControls 走到 MyScrollViewer 就断了
+    ///     （它既不是 Panel 也不是 ContentControl），而没有加载器时状态机只认识 Child，
+    ///     所以消息区与输入栏永远对不齐；这里按上游同一组参数把本页可见卡片排进同一次动画。
+    /// </summary>
+    private void ReplayEnterAnimation()
+    {
+        var controls = new List<FrameworkElement>();
+        foreach (var child in PanMessages.Children)
+            if (child is FrameworkElement element) controls.Add(element);
+        if (TextEmpty.Visibility == Visibility.Visible) controls.Add(TextEmpty);
+        controls.AddRange(InputBar.AnimControls);
+
+        foreach (var control in controls)
+        {
+            // TextEmpty 在 XAML 里声明了不吃点击（它盖在消息区上），重播动画时不该替它改回来
+            if (!ReferenceEquals(control, TextEmpty)) control.IsHitTestVisible = true;
+            control.Opacity = 1d;
+            if (control.RenderTransform is TranslateTransform) control.RenderTransform = null;
+        }
+
+        var aniList = new List<ModAnimation.AniData>();
+        var delay = 0;
+        foreach (var control in controls)
+        {
+            control.Opacity = 0d;
+            control.RenderTransform = new TranslateTransform(0d, -16d);
+            aniList.Add(ModAnimation.AaOpacity(control, 1d, 100, delay,
+                new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.Weak)));
+            aniList.Add(ModAnimation.AaTranslateY(control, 5d, 250, delay, new ModAnimation.AniEaseOutFluent()));
+            aniList.Add(ModAnimation.AaTranslateY(control, 11d, 350, delay, new ModAnimation.AniEaseOutBack()));
+            // 长对话的逐个延迟封在 300ms，否则尾部要等一秒多才动起来
+            delay = Math.Min(delay + 25, 300);
+        }
+
+        ModAnimation.AniStart(aniList, "PageRight PageChange " + pageUuid, true);
     }
 
     private static void OpenMarkdownLink(object sender, ExecutedRoutedEventArgs e)

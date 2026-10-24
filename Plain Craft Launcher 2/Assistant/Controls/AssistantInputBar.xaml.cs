@@ -35,6 +35,9 @@ public partial class AssistantInputBar
         set => TextChatInput.Text = value ?? "";
     }
 
+    /// <summary>本页自己的动画单元：上游的页面遍历无法穿过外层 ScrollViewer，聊天页需要点名带动画。</summary>
+    public FrameworkElement[] AnimControls => [CardInput, CardFooter];
+
     public void ClearInput() => TextChatInput.Clear();
 
     public void SetBusy(bool busy)
