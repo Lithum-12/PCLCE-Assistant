@@ -61,6 +61,24 @@
                                   ToolTip="{DynamicResource Setup.Assistant.Region.Tip}"
                                   Change="CheckBypass_OnChange" />
             </local:MyCard>
+
+            <local:MyCard Margin="0,0,0,15" Title="{DynamicResource Setup.Assistant.Card.Tools}">
+                <Grid Margin="25,40,25,16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="28" />
+                        <RowDefinition Height="9" />
+                        <RowDefinition Height="28" />
+                    </Grid.RowDefinitions>
+                    <local:MyCheckBox x:Name="CheckTools" Grid.Row="0" Height="22" HorizontalAlignment="Left"
+                                      VerticalAlignment="Center" Text="{DynamicResource Setup.Assistant.Tools}"
+                                      ToolTip="{DynamicResource Setup.Assistant.Tools.Tip}"
+                                      Change="CheckTools_OnChange" />
+                    <local:MyCheckBox x:Name="CheckRedact" Grid.Row="2" Height="22" HorizontalAlignment="Left"
+                                      VerticalAlignment="Center" Text="{DynamicResource Setup.Assistant.Redact}"
+                                      ToolTip="{DynamicResource Setup.Assistant.Redact.Tip}"
+                                      Change="CheckRedact_OnChange" />
+                </Grid>
+            </local:MyCard>
         </StackPanel>
     </local:MyScrollViewer>
 </local:MyPageRight>

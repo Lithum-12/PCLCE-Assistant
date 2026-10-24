@@ -19,5 +19,10 @@ public static partial class Config
 
         // 上游 v2.15.1 起按区域禁用下载/安装，本 fork 面向该区域的用户，默认放行
         [ConfigItem<bool>("AssistantAllowRestrictedFeatures", true)] public partial bool AllowRestrictedFeatures { get; set; }
+
+        [ConfigItem<bool>("AssistantToolsEnabled", true)] public partial bool ToolsEnabled { get; set; }
+
+        // 本地文件内容发出去之前先刮掉用户名、IP、坐标等，关掉它等于允许原文外发
+        [ConfigItem<bool>("AssistantRedactLocal", true)] public partial bool RedactLocalContent { get; set; }
     }
 }

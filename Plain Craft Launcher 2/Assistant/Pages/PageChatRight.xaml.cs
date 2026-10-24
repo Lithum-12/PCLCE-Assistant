@@ -17,6 +17,12 @@ namespace PCL.Assistant;
 
 public partial class PageChatRight
 {
+    // 工具往返的轮数上限：一次追问一般 1~2 轮就够，留一点余量又不至于跑飞
+    private const int MaxToolRounds = 4;
+
+    // 一轮问答里最多允许带上多少字的本地内容，超过就不再执行新工具
+    private const int MaxToolChars = 24000;
+
     // A response belongs to its session, not to whichever session happens to be selected later.
     private readonly Dictionary<string, CancellationTokenSource> _runs = new();
     private readonly HashSet<string> _discardDraftOnSwitch = new();
@@ -142,20 +148,54 @@ public partial class PageChatRight
         UpdateInputState();
 
         var response = new StringBuilder();
+        // 实例在发送时就固定，回答中途切换实例不会把两份数据混在一起
+        var toolset = new AssistantToolset(ModInstanceList.McMcInstanceSelected);
+        var history = new List<AssistantMessage> { new("system", BuildSystemPrompt()) };
+        history.AddRange(session.Messages.GetRange(0, answerIndex));
+        var progress = new InlineProgress<string>(delta =>
+        {
+            response.Append(delta);
+            AssistantSessionStore.UpdateMessage(session, answerIndex, response.ToString());
+            _streamDirty = true;
+        });
+        var toolsRejected = false;
+        var toolChars = 0;
         try
         {
-            var messages = new List<AssistantMessage> { new("system", BuildSystemPrompt()) };
-            messages.AddRange(session.Messages.GetRange(0, answerIndex));
-            var text = await AssistantClient.ChatAsync(messages, Config.Assistant.ApiBaseUrl,
-                Config.Assistant.ModelName, Config.Assistant.ApiKey,
-                new InlineProgress<string>(delta =>
+            for (var round = 0; round < MaxToolRounds; round++)
+            {
+                var before = response.Length;
+                var reply = await AssistantClient.SendAsync(history, Config.Assistant.ApiBaseUrl,
+                    Config.Assistant.ModelName, Config.Assistant.ApiKey,
+                    toolset.Definitions.Count > 0 ? toolset.Definitions : null, progress, cts.Token);
+                toolsRejected = reply.ToolsRejected;
+                // 增量与最终文本对不上时以最终文本为准，避免同一轮内容重复
+                if (response.Length != before + reply.Content.Length)
                 {
-                    response.Append(delta);
-                    AssistantSessionStore.UpdateMessage(session, answerIndex, response.ToString());
-                    _streamDirty = true;
-                }), cts.Token);
-            response.Clear();
-            response.Append(text);
+                    response.Length = before;
+                    progress.Report(reply.Content);
+                }
+
+                if (reply.ToolCalls.Count == 0) break;
+
+                history.Add(AssistantMessage.AssistantWithTools(reply.ToolCalls, reply.Content));
+                if (reply.Content.Length > 0) progress.Report("\n\n");
+                // 每个 tool_call 都必须有对应回复，否则部分兼容层会直接 400，
+                // 所以超预算的调用不是丢掉，而是明确告诉模型没执行
+                foreach (var call in reply.ToolCalls)
+                {
+                    string result;
+                    if (toolChars >= MaxToolChars)
+                        result = $"本地内容预算（{MaxToolChars} 字）已用尽，本次未执行 {call.Id}。请基于已获得的信息回答。";
+                    else
+                    {
+                        result = await toolset.RunAsync(call, cts.Token);
+                        toolChars += result.Length;
+                    }
+
+                    history.Add(AssistantMessage.Tool(call.Id, result));
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -175,7 +215,8 @@ public partial class PageChatRight
         {
             _markdownTimer.Stop();
             FlushStreamMarkdown();
-            AssistantSessionStore.CompleteAssistantMessage(session, answerIndex, response.ToString());
+            var final = response.ToString() + BuildTraceFooter(toolset.Trace, toolsRejected);
+            AssistantSessionStore.CompleteAssistantMessage(session, answerIndex, final);
             if (_runs.TryGetValue(session.Id, out var active) && ReferenceEquals(active, cts))
                 _runs.Remove(session.Id);
             cts.Dispose();
@@ -184,6 +225,14 @@ public partial class PageChatRight
             UpdateInputState();
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
         }
+    }
+
+    /// <summary>把"到底发了什么出去"写在回答末尾，而不是藏在日志里。</summary>
+    private static string BuildTraceFooter(IReadOnlyList<string> trace, bool toolsRejected)
+    {
+        if (toolsRejected) return "\n\n> " + Lang.Text("Assistant.Chat.Tools.Rejected");
+        if (trace.Count == 0) return "";
+        return "\n\n> " + Lang.Text("Assistant.Chat.Tools.Trace") + "：" + string.Join("；", trace);
     }
 
     private void FlushStreamMarkdown()

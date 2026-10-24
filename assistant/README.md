@@ -8,11 +8,19 @@
 
 | 位置 | 内容 |
 |---|---|
-| `Plain Craft Launcher 2/Assistant/Pages/PageChat*` | 顶层「聊天」页：消息流 + 输入框 |
-| `Plain Craft Launcher 2/Assistant/Pages/PageSetupAssistant.*` | 设置 → AI 助手：启用开关、服务地址、模型名、API 密钥 |
+| `Plain Craft Launcher 2/Assistant/Pages/PageChat*` | 顶层「聊天」页：消息流 + 会话切换 + 输入框 |
+| `Plain Craft Launcher 2/Assistant/Pages/PageSetupAssistant.*` | 设置 → AI 助手：启用开关、服务地址、模型名、API 密钥、工具与隐私开关 |
+| `Plain Craft Launcher 2/Assistant/Controls/AssistantInputBar.*` | 双卡片输入栏：输入框 + 实例选择 + 模型切换 |
+| `Plain Craft Launcher 2/Assistant/AssistantToolset.cs` | 暴露给模型的只读工具（崩溃报告 / latest.log / mods / Modrinth / CurseForge） |
 | `Plain Craft Launcher 2/Assistant/AssistantHooks.cs` | 启动注入：区域判定覆盖 + fork 私有字符串资源 |
+| `PCL.Core/Assistant/AssistantClient.cs` | OpenAI 兼容 `/chat/completions`：流式增量 + function calling，服务商拒绝 tools 时自动降级 |
+| `PCL.Core/Assistant/AssistantStream.cs` | SSE 分片累积：正文按序拼接，`tool_calls` 按 index 归并 |
+| `PCL.Core/Assistant/AssistantLocalReader.cs` | 实例文件提取：崩溃报告取头尾、日志只取尾部、mods 清单 |
+| `PCL.Core/Assistant/AssistantRedactor.cs` | 外发前脱敏：用户名与完整路径、IP、UUID、坐标、种子、账号名 |
 | `PCL.Core/Assistant/AssistantConfig.cs` | `Config.Assistant.*` 配置项，密钥走 `ConfigSource.SharedEncrypt` 加密存储 |
 | `PCL.Core/Assistant/AssistantRegionBypass.cs` | 区域判定覆盖的实现，读 `AllowRestrictedFeatures` |
+
+助手气泡按 Markdown 渲染，直接复用上游已有的 `Markdig.Wpf.MarkdownViewer`；每条消息卡片用 `MyCard` 自带的 `CanSwap` 折叠，右上角另有复制按钮。
 
 ## 构建
 
@@ -33,9 +41,10 @@ dotnet run --project "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -c D
 
 ## 里程碑
 
-- **M1（当前）**：fork 骨架与同步机制、区域限制旁路、聊天页与设置子页骨架。
-- **M2（已完成，待真实密钥验证）**：`AssistantClient` 走 OpenAI 兼容 `/chat/completions` 流式读取；`AssistantProviders` 内置 DeepSeek / Kimi / 智谱 / 通义 / 豆包 / MiniMax / 硅基流动 / 自定义预设；设置页可选服务商，聊天页左下选实例、右下切模型。
-- **M3**：工具调用——读取当前实例的崩溃报告与日志、模组清单与依赖冲突分析、CurseForge / Modrinth 资源查询；外发前脱敏（玩家名、IP、坐标）。
+- **M1**：fork 骨架与同步机制、区域限制旁路、聊天页与设置子页骨架。
+- **M2（已用真实密钥验证）**：`AssistantClient` 走 OpenAI 兼容 `/chat/completions` 流式读取；`AssistantProviders` 内置 DeepSeek / Kimi / 智谱 / 通义 / 豆包 / MiniMax / 硅基流动 / 自定义预设；设置页可选服务商，聊天页左下选实例、右下切模型。
+- **M3（代码与单测完成，尚未跑通真实模型的完整工具往返）**：只读工具集 `read_crash_report` / `read_latest_log` / `list_mods` / `search_modrinth`（有 CurseForge 密钥时再加 `search_curseforge`），页面最多 4 轮工具往返，回答末尾附一行"本次工具调用"痕迹说明实际外发了多少内容。脱敏默认开启，可在设置 → AI 助手 → 工具与隐私 关闭。
+- **依赖冲突分析**尚未做：M3 只把崩溃报告、日志与模组清单交给模型，本地没有做模组依赖/版本冲突的规则判定。
 
 ## Chat UX architecture
 

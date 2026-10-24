@@ -20,6 +20,8 @@ public partial class PageSetupAssistant
     {
         CheckEnabled.SetChecked(Config.Assistant.Enabled, false);
         CheckBypass.SetChecked(Config.Assistant.AllowRestrictedFeatures, false);
+        CheckTools.SetChecked(Config.Assistant.ToolsEnabled, false);
+        CheckRedact.SetChecked(Config.Assistant.RedactLocalContent, false);
         TextModel.Text = Config.Assistant.ModelName;
         TextApiKey.Password = Config.Assistant.ApiKey;
         TextBaseUrl.Text = Config.Assistant.ApiBaseUrl;
@@ -100,5 +102,17 @@ public partial class PageSetupAssistant
     {
         if (!user || ModAnimation.AniControlEnabled != 0) return;
         Config.Assistant.AllowRestrictedFeatures = ((MyCheckBox)senderRaw).Checked == true;
+    }
+
+    private void CheckTools_OnChange(object senderRaw, bool user)
+    {
+        if (!user || ModAnimation.AniControlEnabled != 0) return;
+        Config.Assistant.ToolsEnabled = ((MyCheckBox)senderRaw).Checked == true;
+    }
+
+    private void CheckRedact_OnChange(object senderRaw, bool user)
+    {
+        if (!user || ModAnimation.AniControlEnabled != 0) return;
+        Config.Assistant.RedactLocalContent = ((MyCheckBox)senderRaw).Checked == true;
     }
 }
