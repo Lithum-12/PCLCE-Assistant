@@ -6,7 +6,6 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using PCL.Core.App;
-using PCL.Core.IO.Net;
 
 namespace PCL.Core.Assistant;
 
@@ -95,7 +94,7 @@ public static class AssistantProjectLinks
 
     private static async Task<AssistantProjectInfo?> FetchModrinthAsync(string slug)
     {
-        var body = await GetAsync(NetworkService.ModrinthApi, $"project/{Uri.EscapeDataString(slug)}");
+        var body = await GetAsync($"https://api.modrinth.com/v2/project/{Uri.EscapeDataString(slug)}");
         if (body is null) return null;
         try
         {
@@ -121,8 +120,8 @@ public static class AssistantProjectLinks
     {
         // 没有 CurseForge 密钥时直接放弃卡片，聊天里保留普通链接
         if (string.IsNullOrWhiteSpace(Secrets.CurseForgeAPIKey)) return null;
-        var body = await GetAsync(NetworkService.CurseForgeApi,
-            $"mods/search?gameId=432&pageSize=1&slug={Uri.EscapeDataString(slug)}");
+        var body = await GetAsync($"https://api.curseforge.com/v1/mods/search?gameId=432&pageSize=1&slug={Uri.EscapeDataString(slug)}",
+            Secrets.CurseForgeAPIKey);
         if (body is null) return null;
         try
         {
@@ -147,18 +146,8 @@ public static class AssistantProjectLinks
         }
     }
 
-    private static async Task<string?> GetAsync(string client, string relative)
-    {
-        try
-        {
-            using var response = await NetworkService.GetClient(client).GetAsync(new Uri(relative, UriKind.Relative));
-            return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : null;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
+    private static async Task<string?> GetAsync(string url, string? apiKey = null) =>
+        (await AssistantWeb.GetAsync(url, apiKey)).Body;
 
     private static string BuildLoaderText(List<string> loaders, List<string> versions)
     {

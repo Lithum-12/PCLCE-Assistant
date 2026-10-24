@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
 using PCL.Core.Assistant;
-using PCL.Core.IO.Net;
 using PCL.Core.Minecraft.Profile;
 
 namespace PCL.Assistant;
@@ -249,32 +248,12 @@ internal sealed class AssistantToolset
         var url = AssistantSites.BuildUrl(site, path);
         if (url is null) return ($"只接受 {site.Label} 站内的相对路径，例如 /v2/versions/loader/1.20.1。", "路径非法", true);
 
-        var (body, error) = await GetRawAsync(url, token);
+        var (body, error) = await AssistantWeb.GetAsync(url, null, token);
         if (body is null) return ($"读取 {url} 失败：{error}", "失败", true);
 
         var text = Protect(CleanBody(body));
         AddTrace($"查阅 {site.Label} {new Uri(url).AbsolutePath}");
         return ($"GET {url}\n" + text, $"{FormatSize(text.Length)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
-    }
-
-    private static async Task<(string? Body, string? Error)> GetRawAsync(string url, CancellationToken token)
-    {
-        try
-        {
-            using var response = await NetworkService.GetClient().GetAsync(new Uri(url), token);
-            var text = await response.Content.ReadAsStringAsync(token);
-            return response.IsSuccessStatusCode
-                ? (text, null)
-                : (null, $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}：{Shorten(text, 160)}");
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception e)
-        {
-            return (null, e.Message);
-        }
     }
 
     /// <summary>JSON 原样给模型，HTML 剥掉标签再给，否则一半预算都花在标签上。</summary>
@@ -329,10 +308,10 @@ internal sealed class AssistantToolset
 
         var limit = Clamp(ToInt(Args(args, "limit"), DefaultResults), 1, MaxResults);
         var facets = BuildModrinthFacets(Args(args, "version"), Args(args, "project_type"));
-        var url = new StringBuilder($"search?limit={limit}&index=relevance&offset=0&query={WebUtility.UrlEncode(query)}");
+        var url = new StringBuilder($"https://api.modrinth.com/v2/search?limit={limit}&index=relevance&offset=0&query={WebUtility.UrlEncode(query)}");
         if (facets is not null) url.Append("&facets=").Append(WebUtility.UrlEncode(facets));
 
-        var (body, error) = await GetAsync(NetworkService.ModrinthApi, url.ToString(), token);
+        var (body, error) = await AssistantWeb.GetAsync(url.ToString(), null, token);
         if (body is null) return ($"Modrinth 搜索失败：{error}", "失败", true);
 
         try
@@ -366,12 +345,12 @@ internal sealed class AssistantToolset
         if (query.Length == 0) return ("缺少 query 参数，无法搜索。", "", true);
 
         var limit = Clamp(ToInt(Args(args, "limit"), DefaultResults), 1, 50);
-        var url = new StringBuilder($"mods/search?gameId=432&sortField=2&sortOrder=desc&pageSize={limit}");
+        var url = new StringBuilder($"https://api.curseforge.com/v1/mods/search?gameId=432&sortField=2&sortOrder=desc&pageSize={limit}");
         if (CurseForgeClassIds.TryGetValue(Args(args, "project_type"), out var classId))
             url.Append("&classId=").Append(classId);
         url.Append("&searchFilter=").Append(WebUtility.UrlEncode(query));
 
-        var (body, error) = await GetAsync(NetworkService.CurseForgeApi, url.ToString(), token);
+        var (body, error) = await AssistantWeb.GetAsync(url.ToString(), Secrets.CurseForgeAPIKey, token);
         if (body is null) return ($"CurseForge 搜索失败：{error}", "失败", true);
 
         try
@@ -425,29 +404,6 @@ internal sealed class AssistantToolset
         if (!string.IsNullOrWhiteSpace(version)) groups.Add($"[\"versions:{version.Trim()}\"]");
         if (!string.IsNullOrWhiteSpace(projectType)) groups.Add($"[\"project_types:{projectType.Trim().ToLowerInvariant()}\"]");
         return groups.Count == 0 ? null : "[" + string.Join(",", groups) + "]";
-    }
-
-    private async Task<(string? Body, string? Error)> GetAsync(string clientName, string relativeUri,
-        CancellationToken token)
-    {
-        try
-        {
-            var client = NetworkService.GetClient(clientName);
-            using var response = await client.GetAsync(new Uri(relativeUri, UriKind.Relative), token);
-            var text = await response.Content.ReadAsStringAsync(token);
-            if (!response.IsSuccessStatusCode)
-                return (null, $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}：{Shorten(text, 160)}");
-            return (text, null);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-            throw; // 用户按了停止，交给上层处理
-        }
-        catch (Exception e)
-        {
-            // 超时也会以 TaskCanceledException 抛出，这里必须兜住，否则整段对话被判定成"已停止"
-            return (null, e.Message);
-        }
     }
 
     private string Header() => $"实例：{_instance?.Name}｜游戏版本：{AssistantLocalReader.ReadGameVersion(_instance?.PathIndie ?? "")}｜";
