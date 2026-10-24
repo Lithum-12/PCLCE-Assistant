@@ -424,14 +424,15 @@ public partial class PageChatRight
         var copy = new MyIconButton
         {
             SvgIcon = "lucide/copy",
-            Height = 16,
+            // MyIconButton 的图标区固定留 5px 内边距，小于 25 就只剩一个点；这也是上游列表按钮的既有尺寸
+            Height = 25,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 2, 0),
+            Margin = new Thickness(10, 0, 0, 0),
             ToolTip = Lang.Text("Assistant.Chat.Copy")
         };
         copy.Click += (_, _) => ModBase.ClipboardSet(BubbleText(card));
 
-        var row = new Grid { Margin = new Thickness(25, 2, 22, 10) };
+        var row = new Grid { Margin = new Thickness(25, 0, 20, 8) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         row.Children.Add(note);
