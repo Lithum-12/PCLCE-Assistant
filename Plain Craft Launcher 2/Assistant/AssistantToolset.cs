@@ -9,11 +9,16 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using PCL.Core.App;
+using PCL.Core.App.Localization;
 using PCL.Core.Assistant;
 using PCL.Core.IO.Net;
 using PCL.Core.Minecraft.Profile;
 
 namespace PCL.Assistant;
+
+/// <param name="Content">回给模型的正文。</param>
+/// <param name="Note">状态条上那半句短摘要（多少字、几条、是否脱敏）。</param>
+internal sealed record AssistantToolOutcome(string Content, string Note, bool Failed);
 
 /// <summary>
 /// 一次发送所绑定的只读工具集。实例在构造时就抓住，免得回答中途切换实例把两份数据混在一起。
@@ -53,21 +58,34 @@ internal sealed class AssistantToolset
             ["world"] = "17"
         };
 
-    public async Task<string> RunAsync(AssistantToolCall call, CancellationToken token)
+    public async Task<AssistantToolOutcome> RunAsync(AssistantToolCall call, CancellationToken token)
     {
         var args = ReadArguments(call.ArgumentsJson);
-        var content = call.Name switch
+        var (content, note, failed) = call.Name switch
         {
             "read_crash_report" => ReadCrashReports(ToInt(Args(args, "max_files"), 2)),
             "read_latest_log" => ReadLatestLog(),
             "list_mods" => ListMods(),
             "search_modrinth" => await SearchModrinthAsync(args, token),
             "search_curseforge" => await SearchCurseForgeAsync(args, token),
-            _ => $"没有名为 {call.Name} 的工具。"
+            _ => ($"没有名为 {call.Name} 的工具。", "", true)
         };
 
-        return content.Length > ContentBudgetChars + 2000 ? content[..(ContentBudgetChars + 2000)] + "\n…" : content;
+        return new AssistantToolOutcome(
+            content.Length > ContentBudgetChars + 2000 ? content[..(ContentBudgetChars + 2000)] + "\n…" : content,
+            note, failed);
     }
+
+    /// <summary>状态条上要显示的图标与文案。</summary>
+    public (string Icon, string Label) Describe(string toolName) => toolName switch
+    {
+        "read_crash_report" => ("scroll-text", Lang.Text("Assistant.Tool.read_crash_report")),
+        "read_latest_log" => ("list", Lang.Text("Assistant.Tool.read_latest_log")),
+        "list_mods" => ("package", Lang.Text("Assistant.Tool.list_mods")),
+        "search_modrinth" => ("search", Lang.Text("Assistant.Tool.search_modrinth")),
+        "search_curseforge" => ("search", Lang.Text("Assistant.Tool.search_curseforge")),
+        _ => ("settings", Lang.Text("Assistant.Tool.unknown"))
+    };
 
     private IReadOnlyList<AssistantToolDef> BuildDefinitions()
     {
@@ -106,14 +124,14 @@ internal sealed class AssistantToolset
         return defs;
     }
 
-    private string ReadCrashReports(int maxFiles)
+    private (string Content, string Note, bool Failed) ReadCrashReports(int maxFiles)
     {
-        if (_instance is null) return NoInstance;
+        if (_instance is null) return (NoInstance, "", false);
 
         var root = _instance.PathIndie;
         var reports = AssistantLocalReader.ReadCrashReports(root, Clamp(maxFiles, 1, 3));
         if (reports.Count == 0)
-            return $"{root} 下的 crash-reports 目录没有可分析的崩溃报告（要么没崩溃过，要么目录不存在）。";
+            return ($"{root} 下的 crash-reports 目录没有可分析的崩溃报告（要么没崩溃过，要么目录不存在）。", "无崩溃报告", false);
 
         var builder = new StringBuilder(Header());
         var sent = 0;
@@ -126,25 +144,26 @@ internal sealed class AssistantToolset
         }
 
         AddTrace($"崩溃报告 {reports.Count} 份，送出 {FormatSize(sent)}");
-        return builder.ToString();
+        return (builder.ToString(), $"{FormatSize(sent)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
     }
 
-    private string ReadLatestLog()
+    private (string Content, string Note, bool Failed) ReadLatestLog()
     {
-        if (_instance is null) return NoInstance;
+        if (_instance is null) return (NoInstance, "", false);
 
         var log = AssistantLocalReader.ReadLatestLog(_instance.PathIndie);
         if (log is null)
-            return $"{_instance.PathIndie} 下的 logs/latest.log 不存在，这个实例可能还没成功启动过。";
+            return ($"{_instance.PathIndie} 下的 logs/latest.log 不存在，这个实例可能还没成功启动过。", "无日志", false);
 
         var text = Protect(log.Text);
         AddTrace($"latest.log 尾部 {FormatSize(text.Length)}{(log.Truncated ? "（已截断）" : "")}");
-        return Header() + $"=== {log.Source}（读到 {log.RawChars} 字，送出 {text.Length} 字）===\n" + text;
+        return (Header() + $"=== {log.Source}（读到 {log.RawChars} 字，送出 {text.Length} 字）===\n" + text,
+            $"{FormatSize(text.Length)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
     }
 
-    private string ListMods()
+    private (string Content, string Note, bool Failed) ListMods()
     {
-        if (_instance is null) return NoInstance;
+        if (_instance is null) return (NoInstance, "", false);
 
         // 开了版本隔离时 mods 在实例目录，没开时在 Minecraft 根目录，两处都认
         var dirs = new[] { _instance.PathInstance, _instance.PathIndie }
@@ -160,24 +179,24 @@ internal sealed class AssistantToolset
             used ??= Path.Combine(dir, "mods");
         }
 
-        var version = AssistantLocalReader.ReadGameVersion(_instance.PathIndie);
         if (names.Count == 0)
         {
             AddTrace("模组列表 0 项");
-            return $"{Header()}mods 目录是空的（或者不存在），这个实例没有安装任何模组文件。";
+            return ($"{Header()}mods 目录是空的（或者不存在），这个实例没有安装任何模组文件。", "0 个文件", false);
         }
 
         AddTrace($"模组列表 {names.Count} 项");
         var builder = new StringBuilder($"{Header()}mods 目录：{used}\n共 {names.Count} 个文件：\n");
         foreach (var name in names.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
             builder.Append("- ").Append(name).Append('\n');
-        return builder.ToString();
+        return (builder.ToString(), $"{names.Count} 个文件", false);
     }
 
-    private async Task<string> SearchModrinthAsync(Dictionary<string, string> args, CancellationToken token)
+    private async Task<(string Content, string Note, bool Failed)> SearchModrinthAsync(
+        Dictionary<string, string> args, CancellationToken token)
     {
         var query = Args(args, "query");
-        if (query.Length == 0) return "缺少 query 参数，无法搜索。";
+        if (query.Length == 0) return ("缺少 query 参数，无法搜索。", "", true);
 
         var limit = Clamp(ToInt(Args(args, "limit"), DefaultResults), 1, MaxResults);
         var facets = BuildModrinthFacets(Args(args, "version"), Args(args, "project_type"));
@@ -185,7 +204,7 @@ internal sealed class AssistantToolset
         if (facets is not null) url.Append("&facets=").Append(WebUtility.UrlEncode(facets));
 
         var (body, error) = await GetAsync(NetworkService.ModrinthApi, url.ToString(), token);
-        if (body is null) return $"Modrinth 搜索失败：{error}";
+        if (body is null) return ($"Modrinth 搜索失败：{error}", "失败", true);
 
         try
         {
@@ -195,25 +214,27 @@ internal sealed class AssistantToolset
                 : -1L;
             if (doc.RootElement.TryGetProperty("hits", out var hits) && hits.ValueKind == JsonValueKind.Array)
             {
-                var builder = new StringBuilder($"Modrinth 搜索 “{query}”，命中 {total} 条，返回前 {hits.GetArrayLength()} 条：\n");
+                var count = hits.GetArrayLength();
+                var builder = new StringBuilder($"Modrinth 搜索 “{query}”，命中 {total} 条，返回前 {count} 条：\n");
                 foreach (var hit in hits.EnumerateArray())
                     builder.Append("- ").Append(FormatModrinthHit(hit)).Append('\n');
                 AddTrace($"Modrinth 搜索 “{query}”");
-                return builder.ToString();
+                return (builder.ToString(), $"{count} 条", false);
             }
 
-            return "Modrinth 响应里没有 hits 数组。";
+            return ("Modrinth 响应里没有 hits 数组。", "空响应", true);
         }
         catch (JsonException)
         {
-            return "Modrinth 返回的内容不是合法 json。";
+            return ("Modrinth 返回的内容不是合法 json。", "解析失败", true);
         }
     }
 
-    private async Task<string> SearchCurseForgeAsync(Dictionary<string, string> args, CancellationToken token)
+    private async Task<(string Content, string Note, bool Failed)> SearchCurseForgeAsync(
+        Dictionary<string, string> args, CancellationToken token)
     {
         var query = Args(args, "query");
-        if (query.Length == 0) return "缺少 query 参数，无法搜索。";
+        if (query.Length == 0) return ("缺少 query 参数，无法搜索。", "", true);
 
         var limit = Clamp(ToInt(Args(args, "limit"), DefaultResults), 1, 50);
         var url = new StringBuilder($"mods/search?gameId=432&sortField=2&sortOrder=desc&pageSize={limit}");
@@ -222,14 +243,15 @@ internal sealed class AssistantToolset
         url.Append("&searchFilter=").Append(WebUtility.UrlEncode(query));
 
         var (body, error) = await GetAsync(NetworkService.CurseForgeApi, url.ToString(), token);
-        if (body is null) return $"CurseForge 搜索失败：{error}";
+        if (body is null) return ($"CurseForge 搜索失败：{error}", "失败", true);
 
         try
         {
             using var doc = JsonDocument.Parse(body);
             if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
-                return "CurseForge 响应里没有 data 数组。";
-            var builder = new StringBuilder($"CurseForge 搜索 “{query}”，返回 {data.GetArrayLength()} 条：\n");
+                return ("CurseForge 响应里没有 data 数组。", "空响应", true);
+            var count = data.GetArrayLength();
+            var builder = new StringBuilder($"CurseForge 搜索 “{query}”，返回 {count} 条：\n");
             foreach (var item in data.EnumerateArray())
             {
                 var name = Str(item, "name");
@@ -241,11 +263,11 @@ internal sealed class AssistantToolset
             }
 
             AddTrace($"CurseForge 搜索 “{query}”");
-            return builder.ToString();
+            return (builder.ToString(), $"{count} 条", false);
         }
         catch (JsonException)
         {
-            return "CurseForge 返回的内容不是合法 json。";
+            return ("CurseForge 返回的内容不是合法 json。", "解析失败", true);
         }
     }
 

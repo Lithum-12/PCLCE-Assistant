@@ -32,6 +32,7 @@ public partial class PageChatRight
     private AssistantSession? _renderedSession;
     private string? _renderedSessionId;
     private MarkdownViewer? _streamViewer;
+    private AssistantStatusPanel? _streamStatus;
     private AssistantSession? _streamSession;
     private int _streamIndex = -1;
     private bool _streamDirty;
@@ -86,6 +87,7 @@ public partial class PageChatRight
         var switched = !string.Equals(_renderedSessionId, session?.Id, StringComparison.Ordinal);
         PanMessages.Children.Clear();
         _streamViewer = null;
+        _streamStatus = null;
         _renderedSession = session;
         _renderedSessionId = session?.Id;
         var messages = session?.Messages;
@@ -157,9 +159,11 @@ public partial class PageChatRight
             response.Append(delta);
             AssistantSessionStore.UpdateMessage(session, answerIndex, response.ToString());
             _streamDirty = true;
+            _streamStatus?.HideThinking();
         });
         var toolsRejected = false;
         var toolChars = 0;
+        _streamStatus?.ShowThinking(Lang.Text("Assistant.Chat.Thinking"));
         try
         {
             for (var round = 0; round < MaxToolRounds; round++)
@@ -180,21 +184,30 @@ public partial class PageChatRight
 
                 history.Add(AssistantMessage.AssistantWithTools(reply.ToolCalls, reply.Content));
                 if (reply.Content.Length > 0) progress.Report("\n\n");
-                // 每个 tool_call 都必须有对应回复，否则部分兼容层会直接 400，
-                // 所以超预算的调用不是丢掉，而是明确告诉模型没执行
+                var status = _streamStatus;
                 foreach (var call in reply.ToolCalls)
                 {
-                    string result;
+                    var (icon, label) = toolset.Describe(call.Name);
+                    var row = status?.BeginTool(icon, label) ?? -1;
+                    AssistantToolOutcome outcome;
                     if (toolChars >= MaxToolChars)
-                        result = $"本地内容预算（{MaxToolChars} 字）已用尽，本次未执行 {call.Id}。请基于已获得的信息回答。";
+                    {
+                        // 每个 tool_call 都必须有对应回复，否则部分兼容层会直接 400，
+                        // 所以超预算的调用不是丢掉，而是明确告诉模型没执行
+                        outcome = new AssistantToolOutcome(
+                            $"本地内容预算（{MaxToolChars} 字）已用尽，本次未执行。请基于已获得的信息回答。", "超出预算", false);
+                    }
                     else
                     {
-                        result = await toolset.RunAsync(call, cts.Token);
-                        toolChars += result.Length;
+                        outcome = await toolset.RunAsync(call, cts.Token);
+                        toolChars += outcome.Content.Length;
                     }
 
-                    history.Add(AssistantMessage.Tool(call.Id, result));
+                    status?.EndTool(row, !outcome.Failed, outcome.Note);
+                    history.Add(AssistantMessage.Tool(call.Id, outcome.Content));
                 }
+
+                status?.ShowThinking(Lang.Text("Assistant.Chat.Thinking.Next"));
             }
         }
         catch (OperationCanceledException)
@@ -303,6 +316,7 @@ public partial class PageChatRight
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(25, 40, 25, 20)
             };
+            card.Tag = card.SwapControl;
         }
         else
         {
@@ -313,8 +327,21 @@ public partial class PageChatRight
                 FontWeight = FontWeights.Normal
             };
             viewer.SetResourceReference(Control.ForegroundProperty, "ColorBrush1");
-            card.SwapControl = viewer;
-            if (streamingTarget) _streamViewer = viewer;
+            var status = new AssistantStatusPanel { Margin = new Thickness(25, 40, 25, 0) };
+            // 状态条出现时正文往上贴，否则标题下面会空出一大截
+            status.OnLayoutChanged = () => viewer.Margin = status.Visibility == Visibility.Visible
+                ? new Thickness(25, 6, 25, 20)
+                : new Thickness(25, 40, 25, 20);
+            var body = new StackPanel();
+            body.Children.Add(status);
+            body.Children.Add(viewer);
+            card.SwapControl = body;
+            card.Tag = viewer;
+            if (streamingTarget)
+            {
+                _streamViewer = viewer;
+                _streamStatus = status;
+            }
         }
 
         card.Children.Add(card.SwapControl);
@@ -339,7 +366,7 @@ public partial class PageChatRight
 
     /// <summary>复制取当前正文而不是建卡时的快照：助手气泡在流式期间会一直变。</summary>
     private static string BubbleText(MyCard card) =>
-        card.SwapControl switch
+        card.Tag switch
         {
             MarkdownViewer viewer => viewer.Markdown ?? "",
             TextBlock block => block.Text ?? "",
