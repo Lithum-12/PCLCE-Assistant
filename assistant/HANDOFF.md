@@ -37,6 +37,8 @@
 - `MyCheckBox` 用 `Change(object, bool user)`；`MyListItem` 用 `Check(object, RouteEventArgs)`。
 - `SetChecked(...)` 会触发 `Check`，`e.raiseByMouse` 区分手动/程序化。**所有 Check handler 开头必须 `if (!e.raiseByMouse) return;`**，否则 SetChecked→Check→改状态→Changed→重建列表→SetChecked 同步递归栈溢出（历史真实崩溃）。
 - `MyComboBox` 展开时执行 `Width = ActualWidth`（`Controls/MyComboBox.cs:187-189`），用过一次下拉宽度就冻结；必须 `DropDownWidthSync="False"`。
+- **同一主页面内切换子页，必须由左栏自己换右页**（照 `Pages/PageTools/PageToolsLeft.xaml.cs:116-168` 的 `PageChange(id)` + `PageChangeRun((MyPageRight)PageGet(id))`，直接替换 `ModMain.frmMain.PanMainRight.Child`）。调 `frmMain.PageChange(PageType, subType)` 在同一主页面下是空操作，日志里不会出现 `切换主要页面：Assistant, 14`，表现为「点了没反应」。
+- 本地 Debug 构建的 `DebugType` 由根目录新增的 `Directory.Build.targets` 覆盖为 `portable`（上游 csproj 写死 `full`，vsdbg 不接受）；别把它改回上游写法，否则 VS Code 断点不绑定。
 - 页面进入动画只作用于 `MyCard/MyHint/MyExtraTextButton/TextBlock/MyTextButton`（`Controls/MyPageRight.cs:660-682`）；想让新控件跟动画，就把它放进 MyCard 里。
 - 设置页网格规范：两列 `Auto(SharedSizeGroup="Name")` + `1*`，行高固定 28、间隔行 5/9，标签 `Margin="0,0,25,0"`、`VerticalAlignment="Center"`。参照 `Pages/PageSetup/PageSetupLauncherMisc.xaml:12-27`。
 - 配置：`[ConfigGroup]/[ConfigItem]` 声明在 PCL.Core 的新文件即可生成 `Config.Assistant.*`；密钥用 `ConfigSource.SharedEncrypt`（已验证落盘为密文）。
@@ -48,6 +50,12 @@
 - 模型客户端：`PCL.Core/Assistant/AssistantClient.cs`（OpenAI 兼容 `/chat/completions`，SSE 逐行解析，`NetworkService.GetClient()` 复用代理/DoH/UA）、`AssistantProviders.cs`（国产服务商预设）。
 - UI：`Assistant/Controls/AssistantInputBar.xaml(.cs)`（双 MyCard 输入栏，暴露 `SendRequested`/`StopRequested`/`SetBusy`）、`Pages/PageAssistantHome`（居中空状态卡+输入栏，发送即新建会话并转入对话页）、`Pages/PageChatRight`（会话渲染与发送）、`Pages/PageChatLeft`（首页/历史两组、历史删除按钮）、`Pages/PageSetupAssistant`（即时写入设置页）。
 - 路由：`PageType.Assistant=4`、`PageSubType.AssistantHome=13/AssistantChat=14/SetupAssistant=12`；`FormMain.xaml.cs` 的 case 走 `left.PageGet(subType)`。
+
+## 已修与待验（截至 `951c7f2`）
+
+已修并有沙箱证据：子页路由（连点三次「新对话」只落 1 个会话，右页确实切换）、空会话复用、`TextEmpty` 重挂、外部发送等 `Loaded`、`_cts` 归属、用户轮次先落盘、`MyComboBox` 宽度冻结（`DropDownWidthSync="False"`）、`SetChecked` 递归导致的栈溢出崩溃（`!e.raiseByMouse` 守卫）。
+
+**唯一未闭环的一条**：切换历史会话后，右页消息区在一张截图里出现过空白（当时窗口正被缩放、点击可能落在切换中途，不能定论）。接手方请专门验：点历史条目 → 该会话消息应完整重渲染；若空白，查 `PageChatRight.PageEnter += RenderCurrentSession` 的触发时机（`MyPageRight.PageOnEnter` 只在状态为 Empty/ContentExit 时进入）。
 
 ## 待解决问题（用户报告；先复现再修）
 
