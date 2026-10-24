@@ -151,7 +151,7 @@ public static class AssistantSessionStore
             session.Title = title.Length > 24 ? title[..24] : title;
         }
 
-        session.Messages.Add(new AssistantMessage("user", content));
+        session.Messages.Add(new AssistantMessage("user", content) { At = Now() });
         Touch(session);
         Save();
     }
@@ -159,7 +159,7 @@ public static class AssistantSessionStore
     public static int AppendAssistantMessage(AssistantSession session, string content)
     {
         Track(session);
-        session.Messages.Add(new AssistantMessage("assistant", content));
+        session.Messages.Add(new AssistantMessage("assistant", content) { At = Now() });
         Touch(session);
         Save();
         return session.Messages.Count - 1;
@@ -169,7 +169,7 @@ public static class AssistantSessionStore
     public static void AppendHintMessage(AssistantSession session, string level, string content)
     {
         Track(session);
-        session.Messages.Add(new AssistantMessage("hint", content) { Level = level });
+        session.Messages.Add(new AssistantMessage("hint", content) { Level = level, At = Now() });
         Touch(session);
         Save();
     }
@@ -191,12 +191,16 @@ public static class AssistantSessionStore
         session.Messages[index] = previous with { Content = content };
     }
 
-    public static void CompleteAssistantMessage(AssistantSession session, int index, string content)
+    public static void CompleteAssistantMessage(AssistantSession session, int index, string content,
+        IReadOnlyList<string>? trace = null)
     {
-        UpdateMessage(session, index, content);
+        if (index < 0 || index >= session.Messages.Count) return;
+        session.Messages[index] = session.Messages[index] with { Content = content, Trace = trace };
         Touch(session);
         Save();
     }
+
+    private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     public static void Delete(AssistantSession session)
     {

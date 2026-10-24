@@ -147,4 +147,31 @@ public class AssistantSessionStoreTest
         Assert.AreEqual("warn", session.Messages[1].Level);
         Assert.AreEqual("新文案", session.Messages[1].Content);
     }
+
+    [TestMethod]
+    public void Messages_AreStampedWithTimeAndKeepTraceAcrossReload()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "在吗");
+        var answer = AssistantSessionStore.AppendAssistantMessage(session, "回答");
+        AssistantSessionStore.CompleteAssistantMessage(session, answer, "回答", ["崩溃报告 2 份", "模组列表 132 项"]);
+
+        Assert.IsTrue(session.Messages[0].At > 0);
+        var reloaded = AssistantSessionStore.Load();
+
+        Assert.AreEqual(2, reloaded[0].Messages[1].Trace!.Count);
+        Assert.AreEqual(session.Messages[0].At, reloaded[0].Messages[0].At);
+    }
+
+    [TestMethod]
+    public void CompleteAssistantMessage_WithoutTrace_LeavesFooterEmpty()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "在吗");
+        var answer = AssistantSessionStore.AppendAssistantMessage(session, "");
+
+        AssistantSessionStore.CompleteAssistantMessage(session, answer, "纯聊天回答");
+
+        Assert.IsNull(session.Messages[answer].Trace);
+    }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -116,9 +117,7 @@ public partial class PageChatRight
                     continue;
                 }
 
-                AppendBubble(session, i,
-                    message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
-                    message.Content,
+                AppendBubble(session, i, message,
                     streamingTarget: message.Role == "assistant" && generating && i == messages.Count - 1,
                     collapsed);
             }
@@ -245,8 +244,8 @@ public partial class PageChatRight
             if (issue is not null && response.Length == 0)
                 AssistantSessionStore.RemoveMessage(session, answerIndex); // 一个字都没出来，别留个空气泡
             else
-                AssistantSessionStore.CompleteAssistantMessage(session, answerIndex,
-                    response + BuildTraceFooter(toolset.Trace, toolsRejected));
+                AssistantSessionStore.CompleteAssistantMessage(session, answerIndex, response.ToString(),
+                    TraceLines(toolset, toolsRejected));
             if (issue is not null)
                 AssistantSessionStore.AppendHintMessage(session, issue.Level, IssueText(issue));
             if (_runs.TryGetValue(session.Id, out var active) && ReferenceEquals(active, cts))
@@ -265,12 +264,12 @@ public partial class PageChatRight
         return issue.Detail.Length == 0 ? text : $"{text}（{issue.Detail}）";
     }
 
-    /// <summary>把"到底发了什么出去"写在回答末尾，而不是藏在日志里。</summary>
-    private static string BuildTraceFooter(IReadOnlyList<string> trace, bool toolsRejected)
+    /// <summary>工具痕迹不进正文，只进卡片左下角那一行的提示里。</summary>
+    private static List<string>? TraceLines(AssistantToolset toolset, bool toolsRejected)
     {
-        if (toolsRejected) return "\n\n> " + Lang.Text("Assistant.Chat.Tools.Rejected");
-        if (trace.Count == 0) return "";
-        return "\n\n> " + Lang.Text("Assistant.Chat.Tools.Trace") + "：" + string.Join("；", trace);
+        List<string> lines = [.. toolset.Trace];
+        if (toolsRejected) lines.Add(Lang.Text("Assistant.Chat.Tools.Rejected"));
+        return lines.Count == 0 ? null : lines;
     }
 
     private void FlushStreamMarkdown()
@@ -323,37 +322,39 @@ public partial class PageChatRight
         public void Report(T value) => handler(value);
     }
 
-    private void AppendBubble(AssistantSession session, int index, string roleKey, string text,
+    private void AppendBubble(AssistantSession session, int index, AssistantMessage message,
         bool streamingTarget, HashSet<int> collapsed)
     {
+        var isUser = message.Role == "user";
         // 折叠直接复用 MyCard 自带的 CanSwap：右上角箭头 + 40px 标题行是上游控件的既有度量。
         var card = new MyCard
         {
-            Title = Lang.Text(roleKey),
-            Margin = new Thickness(0, 0, 0, 10),
+            Title = Lang.Text(isUser ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant"),
+            Margin = new Thickness(0, 0, 0, 8),
             CanSwap = true
         };
-        if (roleKey == "Assistant.Chat.RoleUser")
+        var body = new StackPanel();
+        if (!isUser)
+            body.Children.Add(new AssistantStatusPanel { Margin = new Thickness(25, 36, 25, 0) });
+
+        if (isUser)
         {
-            card.SwapControl = new TextBlock
+            var text = new TextBlock
             {
-                Text = text,
+                Text = message.Content,
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(25, 40, 25, 20)
+                Margin = new Thickness(25, 36, 25, 4)
             };
-            card.Tag = new BubbleSource(session, index);
+            text.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrush1");
+            body.Children.Add(text);
         }
         else
         {
-            var status = new AssistantStatusPanel { Margin = new Thickness(25, 40, 25, 0) };
-            var body = new StackPanel();
-            body.Children.Add(status);
-            // 流式期间只画正文，否则每个增量都要重新联网查一遍卡片
+            // 流式期间只画正文，否则每个增量都要重新联网查一遍资源卡片
             List<AssistantSegment> segments = streamingTarget
-                ? [new AssistantSegment(false, text)]
-                : AssistantProjectCards.Split(text);
+                ? [new AssistantSegment(false, message.Content)]
+                : AssistantProjectCards.Split(message.Content);
             FrameworkElement? firstContent = null;
-            FrameworkElement? lastContent = null;
             MarkdownViewer? streamViewer = null;
             foreach (var segment in segments)
             {
@@ -364,63 +365,90 @@ public partial class PageChatRight
                 }
                 else
                 {
-                    var viewer = new MarkdownViewer
-                    {
-                        Markdown = segment.Text,
-                        FontWeight = FontWeights.Normal
-                    };
+                    var viewer = new MarkdownViewer { Markdown = segment.Text, FontWeight = FontWeights.Normal };
                     viewer.SetResourceReference(Control.ForegroundProperty, "ColorBrush1");
                     streamViewer ??= viewer;
                     element = viewer;
                 }
 
-                element.Margin = new Thickness(25, firstContent is null ? 40 : 8, 25,
-                    element is MarkdownViewer ? 12 : 0);
-                firstContent ??= element;
-                lastContent = element;
+                element.Margin = new Thickness(25, firstContent is null ? 36 : 6, 25, 8);
+                firstContent = element;
                 body.Children.Add(element);
             }
 
-            // 段与段之间贴紧，但气泡最后一段仍然留够 20 的下边距，跟用户气泡对齐
-            if (lastContent is MarkdownViewer tailViewer)
-                tailViewer.Margin = new Thickness(25, tailViewer.Margin.Top, 25, 20);
-
             // 状态条出现时正文往上贴，否则标题下面会空出一大截
-            status.OnLayoutChanged = () =>
+            if (body.Children[0] is AssistantStatusPanel status)
             {
-                if (firstContent is null) return;
-                firstContent.Margin = status.Visibility == Visibility.Visible
-                    ? new Thickness(25, 6, 25, firstContent.Margin.Bottom)
-                    : new Thickness(25, 40, 25, firstContent.Margin.Bottom);
-            };
+                status.OnLayoutChanged = () =>
+                {
+                    if (firstContent is null) return;
+                    firstContent.Margin = status.Visibility == Visibility.Visible
+                        ? new Thickness(25, 4, 25, 8)
+                        : new Thickness(25, 36, 25, 8);
+                };
+            }
 
-            card.SwapControl = body;
-            card.Tag = new BubbleSource(session, index);
             if (streamingTarget)
             {
                 _streamViewer = streamViewer;
-                _streamStatus = status;
+                _streamStatus = body.Children[0] as AssistantStatusPanel;
             }
         }
 
-        card.Children.Add(card.SwapControl);
+        body.Children.Add(BuildFooter(session, index, message, card));
+        card.SwapControl = body;
+        card.Tag = new BubbleSource(session, index);
+        card.Children.Add(body);
         if (collapsed?.Contains(index) == true) card.IsSwapped = true;
+        card.Swap += (_, _) => RecordCollapse(session, index, card);
+        PanMessages.Children.Add(card);
+    }
 
-        var btnCopy = new MyIconButton
+    /// <summary>左下角小灰字（时间 · 用了几个工具），右下角复制。</summary>
+    private FrameworkElement BuildFooter(AssistantSession session, int index, AssistantMessage message, MyCard card)
+    {
+        var note = new TextBlock
+        {
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.WordEllipsis,
+            Text = FooterNote(message)
+        };
+        note.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrush4");
+        if (message.Trace is { Count: > 0 } trace)
+        {
+            note.ToolTip = string.Join("\n", trace);
+            note.TextTrimming = TextTrimming.None;
+        }
+
+        var copy = new MyIconButton
         {
             SvgIcon = "lucide/copy",
             Height = 16,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
-            // 让开右上角的折叠箭头（Right 16 + 宽 10）
-            Margin = new Thickness(0, 12, 34, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 2, 0),
             ToolTip = Lang.Text("Assistant.Chat.Copy")
         };
-        btnCopy.Click += (_, _) => ModBase.ClipboardSet(BubbleText(card));
-        card.Children.Add(btnCopy);
+        copy.Click += (_, _) => ModBase.ClipboardSet(BubbleText(card));
 
-        card.Swap += (_, _) => RecordCollapse(session, index, card);
-        PanMessages.Children.Add(card);
+        var row = new Grid { Margin = new Thickness(25, 2, 22, 10) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.Children.Add(note);
+        Grid.SetColumn(copy, 1);
+        row.Children.Add(copy);
+        return row;
+    }
+
+    private static string FooterNote(AssistantMessage message)
+    {
+        List<string> parts = [];
+        if (message.At > 0)
+            parts.Add(DateTimeOffset.FromUnixTimeMilliseconds(message.At).LocalDateTime
+                .ToString("yyyy.M.d H:mm", CultureInfo.InvariantCulture));
+        if (message.Trace is { Count: > 0 } trace)
+            parts.Add(Lang.Text("Assistant.Chat.UsedTools", trace.Count));
+        return string.Join(" · ", parts);
     }
 
     /// <summary>复制取当前正文而不是建卡时的快照：助手气泡在流式期间会一直变。</summary>

@@ -17,6 +17,12 @@ public sealed record AssistantMessage(string Role, string Content)
     /// <summary>role=="hint" 时的严重级别：info / warn / error。提示只给人看，不进模型上下文。</summary>
     public string Level { get; init; } = "";
 
+    /// <summary>落地时间（Unix 毫秒）。旧数据没有这个字段时为 0，界面上就不显示时间。</summary>
+    public long At { get; init; }
+
+    /// <summary>这条回答用了哪些工具的痕迹，只进卡片脚注，不进模型上下文。</summary>
+    public IReadOnlyList<string>? Trace { get; init; }
+
     /// <summary>role=="tool" 时对应的调用 id。</summary>
     public string? ToolCallId { get; init; }
 
