@@ -36,3 +36,7 @@ dotnet run --project "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -c D
 - **M1（当前）**：fork 骨架与同步机制、区域限制旁路、聊天页与设置子页骨架。
 - **M2（已完成，待真实密钥验证）**：`AssistantClient` 走 OpenAI 兼容 `/chat/completions` 流式读取；`AssistantProviders` 内置 DeepSeek / Kimi / 智谱 / 通义 / 豆包 / MiniMax / 硅基流动 / 自定义预设；设置页可选服务商，聊天页左下选实例、右下切模型。
 - **M3**：工具调用——读取当前实例的崩溃报告与日志、模组清单与依赖冲突分析、CurseForge / Modrinth 资源查询；外发前脱敏（玩家名、IP、坐标）。
+
+## Chat UX architecture
+
+会话隔离、单一聊天画面与手工回归矩阵见 [CHAT-UX-ARCHITECTURE.md](CHAT-UX-ARCHITECTURE.md)。

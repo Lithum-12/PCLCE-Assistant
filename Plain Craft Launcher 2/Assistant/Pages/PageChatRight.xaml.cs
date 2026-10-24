@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -12,74 +13,91 @@ namespace PCL.Assistant;
 
 public partial class PageChatRight
 {
-    private CancellationTokenSource? _cts;
+    // A response belongs to its session, not to whichever session happens to be selected later.
+    private readonly Dictionary<string, CancellationTokenSource> _runs = new();
+    private readonly HashSet<string> _discardDraftOnSwitch = new();
+    private TextBlock? _lastAssistantBubble;
+    private AssistantSession? _renderedSession;
+    private string? _renderedSessionId;
 
     public PageChatRight()
     {
         InitializeComponent();
         PageEnter += RenderCurrentSession;
         InputBar.SendRequested += text => _ = SendAsync(text);
-        InputBar.StopRequested += () => _cts?.Cancel();
+        InputBar.StopRequested += StopCurrentSession;
+        AssistantSessionStore.CurrentChanged += () => ModBase.RunInUi(HandleCurrentChanged);
     }
 
-    /// <summary>
-    ///     空会话不重复新建，避免连点“新对话”堆积空白记录。
-    /// </summary>
+    /// <summary>Starts a blank draft on the existing chat surface. Drafts are not history items.</summary>
     public void NewConversation()
     {
         var current = AssistantSessionStore.Current;
-        if (current is null || current.Messages.Count > 0) AssistantSessionStore.New();
+        if (current is null || AssistantSessionStore.IsPersisted(current) || current.Messages.Count > 0 ||
+            !string.IsNullOrEmpty(InputBar.DraftText))
+        {
+            // If this is an unsent draft, HandleCurrentChanged parks it in the separate Drafts list.
+            AssistantSessionStore.StartNewDraft();
+            return;
+        }
         RenderCurrentSession();
     }
 
-    public void SendFromExternal(string text)
+    public void DeleteSession(AssistantSession session)
     {
-        if (IsLoaded)
+        if (AssistantSessionStore.IsPersisted(session))
         {
-            _ = SendAsync(text);
+            if (_runs.TryGetValue(session.Id, out var cts)) cts.Cancel();
+            if (ReferenceEquals(AssistantSessionStore.Current, session))
+                _discardDraftOnSwitch.Add(session.Id);
+            AssistantSessionStore.Delete(session);
             return;
         }
-
-        // Let the page's normal Loaded handler restore the selected session before sending.
-        RoutedEventHandler? onLoaded = null;
-        onLoaded = (_, _) =>
-        {
-            Loaded -= onLoaded;
-            _ = SendAsync(text);
-        };
-        Loaded += onLoaded;
+        AssistantSessionStore.DeleteDraft(session);
     }
-
-    private AssistantSession CurrentSession =>
-        AssistantSessionStore.Current ?? AssistantSessionStore.New();
 
     public void RenderCurrentSession()
     {
         PanMessages.Children.Clear();
         PanMessages.Children.Add(TextEmpty);
-        var messages = AssistantSessionStore.Current?.Messages;
+        _lastAssistantBubble = null;
+        var session = AssistantSessionStore.Current;
+        _renderedSession = session;
+        _renderedSessionId = session?.Id;
+        var messages = session?.Messages;
         TextEmpty.Visibility = messages is null || messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (messages is null) return;
+        if (messages is null)
+        {
+            UpdateInputState();
+            return;
+        }
+
         foreach (var message in messages)
-            AppendBubble(message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
+        {
+            var bubble = AppendBubble(
+                message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
                 message.Content);
+            if (message.Role == "assistant") _lastAssistantBubble = bubble;
+        }
+        PanBack.ScrollToBottom();
+        UpdateInputState();
     }
 
     private async Task SendAsync(string input)
     {
-        var session = CurrentSession;
-        if (string.IsNullOrWhiteSpace(session.Title))
-            session.Title = input.Length > 24 ? input[..24] : input;
+        input = input.Trim();
+        if (input.Length == 0) return;
 
-        TextEmpty.Visibility = Visibility.Collapsed;
-        AppendBubble("Assistant.Chat.RoleUser", input);
-        session.Messages.Add(new AssistantMessage("user", input));
-        // Persist the user turn and refresh the history title before the network request starts.
-        AssistantSessionStore.Save();
+        var session = AssistantSessionStore.GetCurrentOrCreateDraft();
+        // One active generation per conversation; other conversations can continue independently.
+        if (_runs.ContainsKey(session.Id)) return;
 
+        AssistantSessionStore.AppendUserMessage(session, input);
+        session.DraftText = "";
         if (!Config.Assistant.Enabled)
         {
-            AppendStoredResponse(session, Lang.Text("Assistant.Chat.Disabled"));
+            AssistantSessionStore.AppendAssistantMessage(session, Lang.Text("Assistant.Chat.Disabled"));
+            if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
             return;
         }
 
@@ -87,58 +105,99 @@ public partial class PageChatRight
             string.IsNullOrWhiteSpace(Config.Assistant.ApiBaseUrl) ||
             string.IsNullOrWhiteSpace(Config.Assistant.ModelName))
         {
-            AppendStoredResponse(session, Lang.Text("Assistant.Chat.NotConfigured"));
+            AssistantSessionStore.AppendAssistantMessage(session, Lang.Text("Assistant.Chat.NotConfigured"));
+            if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
             return;
         }
 
-        var answer = AppendBubble("Assistant.Chat.RoleAssistant", "");
+        var answerIndex = AssistantSessionStore.AppendAssistantMessage(session, "");
         var cts = new CancellationTokenSource();
-        _cts = cts;
-        InputBar.SetBusy(true);
+        _runs[session.Id] = cts;
+        if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
+        UpdateInputState();
+
+        var response = new StringBuilder();
         try
         {
             var messages = new List<AssistantMessage> { new("system", BuildSystemPrompt()) };
-            messages.AddRange(session.Messages);
+            messages.AddRange(session.Messages.GetRange(0, answerIndex));
             var text = await AssistantClient.ChatAsync(messages, Config.Assistant.ApiBaseUrl,
                 Config.Assistant.ModelName, Config.Assistant.ApiKey,
-                new Progress<string>(delta =>
+                new InlineProgress<string>(delta =>
                 {
-                    answer.Text += delta;
-                    PanBack.ScrollToBottom();
+                    response.Append(delta);
+                    AssistantSessionStore.UpdateMessage(session, answerIndex, response.ToString());
+                    // Only paint into the view when it is still displaying this session.
+                    if (ReferenceEquals(AssistantSessionStore.Current, session) &&
+                        _renderedSessionId == session.Id && _lastAssistantBubble is not null &&
+                        _lastAssistantBubble.Parent is not null)
+                    {
+                        _lastAssistantBubble.Text = response.ToString();
+                        PanBack.ScrollToBottom();
+                    }
                 }), cts.Token);
-            answer.Text = text;
+            response.Clear();
+            response.Append(text);
         }
         catch (OperationCanceledException)
         {
-            answer.Text += Lang.Text("Assistant.Chat.Stopped");
+            response.Append(Lang.Text("Assistant.Chat.Stopped"));
         }
         catch (AssistantException e)
         {
-            answer.Text = e.Detail is null ? e.Message : $"{e.Message}\n{e.Detail}";
+            response.Clear();
+            response.Append(e.Detail is null ? e.Message : $"{e.Message}\n{e.Detail}");
         }
         catch (Exception e)
         {
-            answer.Text = e.Message;
+            response.Clear();
+            response.Append(e.Message);
         }
         finally
         {
-            if (answer.Text.Length > 0) session.Messages.Add(new AssistantMessage("assistant", answer.Text));
-            if (ReferenceEquals(_cts, cts))
-            {
-                InputBar.SetBusy(false);
-                _cts = null;
-            }
+            AssistantSessionStore.CompleteAssistantMessage(session, answerIndex, response.ToString());
+            if (_runs.TryGetValue(session.Id, out var active) && ReferenceEquals(active, cts))
+                _runs.Remove(session.Id);
             cts.Dispose();
-            AssistantSessionStore.Save();
+            UpdateInputState();
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
         }
     }
 
-    private void AppendStoredResponse(AssistantSession session, string text)
+
+    private void HandleCurrentChanged()
     {
-        AppendBubble("Assistant.Chat.RoleAssistant", text);
-        session.Messages.Add(new AssistantMessage("assistant", text));
-        AssistantSessionStore.Save();
+        var previous = _renderedSession;
+        if (previous is not null)
+        {
+            if (_discardDraftOnSwitch.Remove(previous.Id))
+            {
+                previous.DraftText = "";
+            }
+            else
+            {
+                previous.DraftText = InputBar.DraftText;
+                // Keep unsent content in a separate draft list; never disguise it as chat history.
+                AssistantSessionStore.ParkDraft(previous);
+            }
+        }
+
+        var current = AssistantSessionStore.Current;
+        InputBar.DraftText = current?.DraftText ?? "";
+        RenderCurrentSession();
+        UpdateInputState();
+    }
+
+    private void StopCurrentSession()
+    {
+        var session = AssistantSessionStore.Current;
+        if (session is not null && _runs.TryGetValue(session.Id, out var cts)) cts.Cancel();
+    }
+
+    private void UpdateInputState()
+    {
+        var session = AssistantSessionStore.Current;
+        InputBar.SetBusy(session is not null && _runs.ContainsKey(session.Id));
     }
 
     private string BuildSystemPrompt()
@@ -146,6 +205,13 @@ public partial class PageChatRight
         var prompt = Lang.Text("Assistant.Chat.System");
         var instance = ModInstanceList.McMcInstanceSelected?.Name;
         return string.IsNullOrWhiteSpace(instance) ? prompt : prompt + "\n" + Lang.Text("Assistant.Chat.System.Instance", instance);
+    }
+
+    // AssistantClient awaits on the UI context. Report inline so deltas cannot be queued after
+    // the final response has already replaced the accumulated text.
+    private sealed class InlineProgress<T>(Action<T> handler) : IProgress<T>
+    {
+        public void Report(T value) => handler(value);
     }
 
     private TextBlock AppendBubble(string roleKey, string text)
@@ -163,7 +229,6 @@ public partial class PageChatRight
         };
         card.Children.Add(block);
         PanMessages.Children.Add(card);
-        PanBack.ScrollToBottom();
         return block;
     }
 }

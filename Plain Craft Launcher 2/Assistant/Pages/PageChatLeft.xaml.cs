@@ -8,41 +8,28 @@ namespace PCL.Assistant;
 
 public partial class PageChatLeft
 {
-    public FormMain.PageSubType pageID = FormMain.PageSubType.AssistantHome;
-    private bool isPageSwitched;
+    // Keep a single right-hand chat page. AssistantHome remains a legacy enum value only.
+    public FormMain.PageSubType pageID = FormMain.PageSubType.AssistantChat;
 
     public PageChatLeft()
     {
         InitializeComponent();
         AnimatedControl = PanItem;
-        Loaded += (_, _) =>
-        {
-            if (!isPageSwitched) SyncCheckedItem();
-            RefreshHistory();
-        };
-        AssistantSessionStore.Changed += () => ModBase.RunInUi(RefreshHistory);
+        Loaded += (_, _) => RefreshHistory();
+        AssistantSessionStore.SessionsChanged += () => ModBase.RunInUi(RefreshHistory);
+        AssistantSessionStore.DraftsChanged += () => ModBase.RunInUi(RefreshHistory);
+        AssistantSessionStore.CurrentChanged += () => ModBase.RunInUi(RefreshHistory);
     }
 
-    private void SyncCheckedItem()
+    private void NewChatClick(object senderRaw, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (pageID == FormMain.PageSubType.AssistantChat) ItemNewChat.SetChecked(true, false, false);
-        else ItemHome.SetChecked(true, false, false);
+        ((PageChatRight)PageGet(FormMain.PageSubType.AssistantChat)).NewConversation();
     }
 
-    private void PageCheck(object senderRaw, ModBase.RouteEventArgs e)
+    private void DraftClick(object senderRaw, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (!e.raiseByMouse) return;
-        var sender = (MyListItem)senderRaw;
-        if (sender.Tag is null) return;
-        var target = (FormMain.PageSubType)ModBase.Val(sender.Tag);
-        if (target == FormMain.PageSubType.AssistantChat)
-        {
-            ((PageChatRight)PageGet(target)).NewConversation();
-            PageChange(target);
-            return;
-        }
-
-        PageChange(target);
+        if (((MyListItem)senderRaw).Tag is not AssistantSession draft) return;
+        AssistantSessionStore.Use(draft);
     }
 
     private void HistoryCheck(object senderRaw, ModBase.RouteEventArgs e)
@@ -50,86 +37,60 @@ public partial class PageChatLeft
         if (!e.raiseByMouse) return;
         if (((MyListItem)senderRaw).Tag is not AssistantSession session) return;
         AssistantSessionStore.Use(session);
-        PageChange(FormMain.PageSubType.AssistantChat);
+        // Selecting history only changes the current session. It must not trigger page routing.
     }
 
     private void HistoryDelete(object senderRaw, EventArgs e)
     {
         if (((MyIconButton)senderRaw).Tag is not AssistantSession session) return;
-        AssistantSessionStore.Delete(session);
-        if (pageID == FormMain.PageSubType.AssistantChat)
-            ((PageChatRight)PageGet(pageID)).RenderCurrentSession();
-    }
-
-    /// <summary>
-    ///     同一主页面内换右页，与 PageToolsLeft 同构，不走 FormMain.PageChange。
-    /// </summary>
-    public void PageChange(FormMain.PageSubType id)
-    {
-        if (pageID == id) return;
-        ModAnimation.AniControlEnabled += 1;
-        isPageSwitched = true;
-        try
-        {
-            PageChangeRun((MyPageRight)PageGet(id));
-            pageID = id;
-        }
-        catch (Exception ex)
-        {
-            ModBase.Log(ex, $"切换分页面失败（ID {(int)id}）", ModBase.LogLevel.Feedback,
-                userSummary: Lang.Text("Tools.Error.OperationFailed"));
-        }
-        finally
-        {
-            ModAnimation.AniControlEnabled -= 1;
-        }
-    }
-
-    private static void PageChangeRun(MyPageRight target)
-    {
-        ModAnimation.AniStop("FrmMain PageChangeRight");
-        if (target.Parent is not null)
-            target.SetValue(ContentPresenter.ContentProperty, null);
-        ModMain.frmMain.pageRight = target;
-        ((MyPageRight)ModMain.frmMain.PanMainRight.Child).PageOnExit();
-        ModAnimation.AniStart(new[]
-        {
-            ModAnimation.AaCode(() =>
-            {
-                ((MyPageRight)ModMain.frmMain.PanMainRight.Child).PageOnForceExit();
-                ModMain.frmMain.PanMainRight.Child = ModMain.frmMain.pageRight;
-                ModMain.frmMain.pageRight.Opacity = 0d;
-            }, 130),
-            ModAnimation.AaCode(() =>
-            {
-                ModMain.frmMain.pageRight.Opacity = 1d;
-                ModMain.frmMain.pageRight.PageOnEnter();
-            }, 30, true)
-        }, "PageLeft PageChange");
+        ((PageChatRight)PageGet(FormMain.PageSubType.AssistantChat)).DeleteSession(session);
     }
 
     public object PageGet(FormMain.PageSubType? id = null)
     {
         var target = id ?? pageID;
-        switch (target)
+        return target switch
         {
-            case FormMain.PageSubType.AssistantChat:
-            {
-                return AssistantPages.FrmChatRight ??= new PageChatRight();
-            }
-            case FormMain.PageSubType.AssistantHome:
-            {
-                return AssistantPages.FrmAssistantHome ??= new PageAssistantHome();
-            }
-            default:
-            {
-                throw new Exception("未知的助手子页面种类：" + (int)target);
-            }
-        }
+            FormMain.PageSubType.AssistantChat or FormMain.PageSubType.AssistantHome =>
+                AssistantPages.FrmChatRight ??= new PageChatRight(),
+            _ => throw new Exception("未知的助手子页面种类：" + (int)target)
+        };
     }
 
     private void RefreshHistory()
     {
+        PanDrafts.Children.Clear();
+        LabDraftsHeader.Visibility = AssistantSessionStore.Drafts.Count > 0 ?
+            System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        foreach (var draft in AssistantSessionStore.Drafts)
+        {
+            var delete = new MyIconButton
+            {
+                SvgIcon = "lucide/x",
+                LogoScale = 0.85,
+                Tag = draft,
+                ToolTip = Lang.Text("Assistant.Left.Delete")
+            };
+            delete.Click += HistoryDelete;
+
+            var preview = draft.DraftText.Trim().Replace('\r', ' ').Replace('\n', ' ');
+            if (preview.Length > 24) preview = preview[..24] + "…";
+            var item = new MyListItem
+            {
+                Title = string.IsNullOrWhiteSpace(preview) ? Lang.Text("Assistant.Left.Draft") : preview,
+                Tag = draft,
+                Type = MyListItem.CheckType.Clickable,
+                Height = 36,
+                MinPaddingRight = 35,
+                IsScaleAnimationEnabled = false,
+                LogoScale = 0.9,
+                SvgIcon = "lucide/file-pen-line",
+                Buttons = [delete]
+            };
+            item.Click += DraftClick;
+            PanDrafts.Children.Add(item);
+        }
+
         PanHistory.Children.Clear();
         foreach (var session in AssistantSessionStore.Sessions)
         {
@@ -151,12 +112,11 @@ public partial class PageChatLeft
                 MinPaddingRight = 35,
                 IsScaleAnimationEnabled = false,
                 LogoScale = 0.9,
-                SvgIcon = "lucide/scroll-text",
+                SvgIcon = "lucide/message-square",
                 Buttons = [delete]
             };
             item.Check += HistoryCheck;
-            if (ReferenceEquals(AssistantSessionStore.Current, session) &&
-                pageID == FormMain.PageSubType.AssistantChat)
+            if (ReferenceEquals(AssistantSessionStore.Current, session))
                 item.SetChecked(true, false, false);
             PanHistory.Children.Add(item);
         }

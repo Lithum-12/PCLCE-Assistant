@@ -29,6 +29,12 @@ public partial class AssistantInputBar
             _ => ModBase.RunInUi(RefreshInstance)));
     }
 
+    public string DraftText
+    {
+        get => TextChatInput.Text ?? "";
+        set => TextChatInput.Text = value ?? "";
+    }
+
     public void ClearInput() => TextChatInput.Clear();
 
     public void SetBusy(bool busy)

@@ -7,15 +7,13 @@
                   mc:Ignorable="d" d:DesignWidth="152">
     <local:MyScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel x:Name="PanItem" Margin="0,12,0,0" Orientation="Vertical">
-            <TextBlock Text="{DynamicResource Assistant.Left.HomeCategory}" Margin="13,5,5,3" Opacity="0.6" FontSize="12" />
-            <local:MyListItem x:Name="ItemHome" IsScaleAnimationEnabled="False" Tag="13" MinPaddingRight="35" Height="36"
-                              VerticalAlignment="Top" Title="{DynamicResource Assistant.Left.Home}" Type="RadioBox"
-                              Check="PageCheck" LogoScale="0.9" SvgIcon="lucide/sparkles" />
-
-            <TextBlock Text="{DynamicResource Assistant.Left.HistoryCategory}" Margin="13,10,5,3" Opacity="0.6" FontSize="12" />
-            <local:MyListItem x:Name="ItemNewChat" IsScaleAnimationEnabled="False" Tag="14" MinPaddingRight="35" Height="36"
-                              VerticalAlignment="Top" Title="{DynamicResource Assistant.Left.NewChat}" Type="RadioBox"
-                              Check="PageCheck" LogoScale="0.9" SvgIcon="lucide/scroll-text" />
+            <local:MyListItem x:Name="ItemNewChat" IsScaleAnimationEnabled="False" MinPaddingRight="20" Height="38"
+                              VerticalAlignment="Top" Title="{DynamicResource Assistant.Left.NewChat}" Type="Clickable"
+                              Click="NewChatClick" LogoScale="0.9" SvgIcon="lucide/square-pen" />
+            <TextBlock x:Name="LabDraftsHeader" Text="{DynamicResource Assistant.Left.Drafts}" Margin="13,13,5,3"
+                       Opacity="0.6" FontSize="12" Visibility="Collapsed" />
+            <StackPanel x:Name="PanDrafts" />
+            <TextBlock Text="{DynamicResource Assistant.Left.HistoryCategory}" Margin="13,13,5,3" Opacity="0.6" FontSize="12" />
             <StackPanel x:Name="PanHistory" />
         </StackPanel>
     </local:MyScrollViewer>

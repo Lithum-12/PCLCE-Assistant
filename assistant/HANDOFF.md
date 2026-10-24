@@ -34,11 +34,12 @@
 ## 上游控件陷阱（每条都曾造成真实 bug，改 UI 前必读）
 
 - `MyButton.Click` / `MyIconTextButton.Click` 委托是 `(object, ModBase.RouteEventArgs)`，不是 RoutedEventHandler；签名错=运行时 XamlParseException。
-- `MyCheckBox` 用 `Change(object, bool user)`；`MyListItem` 用 `Check(object, RouteEventArgs)`。
+- `MyCheckBox` 用 `Change(object, bool user)`；`MyListItem` 的 `RadioBox`/`CheckBox` 用 `Check(object, RouteEventArgs)`；`Type="Clickable"` 不触发 `Check`，应使用 `Click(object, MouseButtonEventArgs)`。
 - `SetChecked(...)` 会触发 `Check`，`e.raiseByMouse` 区分手动/程序化。**所有 Check handler 开头必须 `if (!e.raiseByMouse) return;`**，否则 SetChecked→Check→改状态→Changed→重建列表→SetChecked 同步递归栈溢出（历史真实崩溃）。
 - `MyComboBox` 展开时执行 `Width = ActualWidth`（`Controls/MyComboBox.cs:187-189`），用过一次下拉宽度就冻结；必须 `DropDownWidthSync="False"`。
 - **同一主页面内切换子页，必须由左栏自己换右页**（照 `Pages/PageTools/PageToolsLeft.xaml.cs:116-168` 的 `PageChange(id)` + `PageChangeRun((MyPageRight)PageGet(id))`，直接替换 `ModMain.frmMain.PanMainRight.Child`）。调 `frmMain.PageChange(PageType, subType)` 在同一主页面下是空操作，日志里不会出现 `切换主要页面：Assistant, 14`，表现为「点了没反应」。
 - 本地 Debug 构建的 `DebugType` 由根目录新增的 `Directory.Build.targets` 覆盖为 `portable`（上游 csproj 写死 `full`，vsdbg 不接受）；别把它改回上游写法，否则 VS Code 断点不绑定。
+- 助手聊天只保留一个 `PageChatRight` 实例，不要恢复“首页 + 聊天页”双输入框设计；历史选择只更改 `AssistantSessionStore.Current`，由 `CurrentChanged` 驱动重绘。
 - 页面进入动画只作用于 `MyCard/MyHint/MyExtraTextButton/TextBlock/MyTextButton`（`Controls/MyPageRight.cs:660-682`）；想让新控件跟动画，就把它放进 MyCard 里。
 - 设置页网格规范：两列 `Auto(SharedSizeGroup="Name")` + `1*`，行高固定 28、间隔行 5/9，标签 `Margin="0,0,25,0"`、`VerticalAlignment="Center"`。参照 `Pages/PageSetup/PageSetupLauncherMisc.xaml:12-27`。
 - 配置：`[ConfigGroup]/[ConfigItem]` 声明在 PCL.Core 的新文件即可生成 `Config.Assistant.*`；密钥用 `ConfigSource.SharedEncrypt`（已验证落盘为密文）。
@@ -48,21 +49,22 @@
 
 - 会话模型与落盘：`PCL.Core/Assistant/AssistantSession.cs`（`AssistantSession` + `AssistantSessionStore`，json 在 `<Paths.Data>/assistant-sessions.json`，损坏当空列表）。
 - 模型客户端：`PCL.Core/Assistant/AssistantClient.cs`（OpenAI 兼容 `/chat/completions`，SSE 逐行解析，`NetworkService.GetClient()` 复用代理/DoH/UA）、`AssistantProviders.cs`（国产服务商预设）。
-- UI：`Assistant/Controls/AssistantInputBar.xaml(.cs)`（双 MyCard 输入栏，暴露 `SendRequested`/`StopRequested`/`SetBusy`）、`Pages/PageAssistantHome`（居中空状态卡+输入栏，发送即新建会话并转入对话页）、`Pages/PageChatRight`（会话渲染与发送）、`Pages/PageChatLeft`（首页/历史两组、历史删除按钮）、`Pages/PageSetupAssistant`（即时写入设置页）。
-- 路由：`PageType.Assistant=4`、`PageSubType.AssistantHome=13/AssistantChat=14/SetupAssistant=12`；`FormMain.xaml.cs` 的 case 走 `left.PageGet(subType)`。
+- UI：`Assistant/Controls/AssistantInputBar.xaml(.cs)`（唯一聊天输入栏，暴露 `SendRequested`/`StopRequested`/`SetBusy`）、`Pages/PageChatRight`（唯一聊天画面，会话切换与流式响应均在此更新）、`Pages/PageChatLeft`（新对话动作 + 历史列表）、`Pages/PageSetupAssistant`（即时写入设置页）。会话原则与回归矩阵见 `assistant/CHAT-UX-ARCHITECTURE.md`。
+- 路由：`PageType.Assistant=4`、`PageSubType.AssistantHome=13/AssistantChat=14/SetupAssistant=12`；`AssistantHome` 是保留的兼容枚举值，`PageGet` 将其映射到同一个 `PageChatRight`。助手内部切换历史不走页面路由，只切换 `AssistantSessionStore.Current`。
+- 状态：`CurrentChanged` 仅驱动聊天画面切换会话，`SessionsChanged` 驱动历史列表刷新。空白对话是未持久化草稿，发送首条消息才进入历史；流式请求归属具体会话，停止按钮只停止当前选中会话的请求。
 
-## 已修与待验（截至 `951c7f2`）
+## 先前修复记录（截至 `951c7f2`；不能替代本次重构后的回归）
 
 已修并有沙箱证据：子页路由（连点三次「新对话」只落 1 个会话，右页确实切换）、空会话复用、`TextEmpty` 重挂、外部发送等 `Loaded`、`_cts` 归属、用户轮次先落盘、`MyComboBox` 宽度冻结（`DropDownWidthSync="False"`）、`SetChecked` 递归导致的栈溢出崩溃（`!e.raiseByMouse` 守卫）。
 
-**唯一未闭环的一条**：切换历史会话后，右页消息区在一张截图里出现过空白（当时窗口正被缩放、点击可能落在切换中途，不能定论）。接手方请专门验：点历史条目 → 该会话消息应完整重渲染；若空白，查 `PageChatRight.PageEnter += RenderCurrentSession` 的触发时机（`MyPageRight.PageOnEnter` 只在状态为 Empty/ContentExit 时进入）。
+**此前未闭环的一条**：历史切换时右侧消息区曾出现空白。本次架构改为监听 `CurrentChanged` 并在同一聊天页面内重绘，不再依赖 `PageEnter` 事件触发历史切换渲染；仍必须按 `assistant/CHAT-UX-ARCHITECTURE.md` 的矩阵在 Windows 沙箱逐条复测。
 
 ## 待解决问题（用户报告；先复现再修）
 
-1. 聊天对话逻辑：历史消息曾全部堆在单一会话。验证：新建会话互不串、切换历史恢复对应消息、删除按钮（含删除当前会话后的落点）、重启后从 json 恢复、会话标题=首条用户消息前 24 字、消息顺序与角色正确。
+1. 会话/历史逻辑按 `assistant/CHAT-UX-ARCHITECTURE.md` 的 10 项矩阵重新回归：草稿提升、会话隔离、历史恢复、当前/非当前删除、重启恢复、24 字标题、角色与顺序、请求流隔离。
 2. 输入框单行文字垂直居中（现为 `VerticalContentAlignment="Center"`）；多行时的表现是否可接受。
 3. Enter 只发送不换行、Shift+Enter 才换行（现为 `PreviewKeyDown`；曾误用 KeyDown 导致换行）。
-4. 首页发送→自动新建会话→转入对话页→该消息出现在对话中，全链路。
+4. 单一聊天页全链路：空白草稿发送首条消息→生成历史记录→切换历史并返回→数据与页面始终对应；不得再创建独立首页输入框。
 5. 任何新崩溃：按上面日志流程定位；修事件环时优先加 `raiseByMouse` 守卫而非 try/catch 吞掉。
 
 ## 完成标准

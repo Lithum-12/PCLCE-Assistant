@@ -1,12 +1,12 @@
 namespace PCL.Assistant;
 
 /// <summary>
-/// fork 私有的页面实例容器，避免改动上游 ModMain.cs。
+/// Fork-owned assistant page instances. There is deliberately only one chat surface;
+/// history selection swaps the session data shown by that surface instead of replacing pages.
 /// </summary>
 internal static class AssistantPages
 {
     internal static PageChatLeft? FrmChatLeft;
     internal static PageChatRight? FrmChatRight;
     internal static PageSetupAssistant? FrmSetupAssistant;
-    internal static PageAssistantHome? FrmAssistantHome;
 }
