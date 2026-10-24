@@ -123,6 +123,12 @@ public static class AssistantProjectLinks
         var body = await GetAsync($"https://api.curseforge.com/v1/mods/search?gameId=432&pageSize=1&slug={Uri.EscapeDataString(slug)}",
             AssistantCurseForge.Key);
         if (body is null) return null;
+        return ParseCurseForgeHit(body);
+    }
+
+    /// <summary>给测试留的后门：响应形状改了至少能在这儿先发现。</summary>
+    internal static AssistantProjectInfo? ParseCurseForgeHit(string body)
+    {
         try
         {
             using var doc = JsonDocument.Parse(body);
@@ -134,16 +140,45 @@ public static class AssistantProjectLinks
                 Text(item, "id"),
                 Text(item, "name"),
                 Text(item, "summary"),
-                Text(item, "iconUrl"),
+                CurseForgeIcon(item),
                 "CurseForge",
                 "",
                 item.TryGetProperty("downloadCount", out var d) && d.ValueKind == JsonValueKind.Number ? d.GetInt64() : 0,
-                ParseDate(Text(item, "latestFilesDate")));
+                ParseDate(FirstText(item, "dateReleased", "latestFilesDate")));
         }
         catch (JsonException)
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// /v1/mods/search 返回的是 FuzzyMod：图标在 logo.thumbnailUrl / logo.url，
+    /// iconUrl 只有 /v1/mods/{id} 那种完整 Mod 对象才有，所以两个都认。
+    /// 字段名与上游 ModComp._BuildFromCurseForge 读的保持一致。
+    /// </summary>
+    private static string CurseForgeIcon(JsonElement item)
+    {
+        if (item.TryGetProperty("logo", out var logo) && logo.ValueKind == JsonValueKind.Object)
+        {
+            var thumb = Text(logo, "thumbnailUrl");
+            if (thumb.Length > 0) return thumb;
+            var full = Text(logo, "url");
+            if (full.Length > 0) return full;
+        }
+
+        return Text(item, "iconUrl");
+    }
+
+    private static string FirstText(JsonElement item, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var value = Text(item, name);
+            if (value.Length > 0) return value;
+        }
+
+        return "";
     }
 
     private static async Task<string?> GetAsync(string url, string? apiKey = null) =>

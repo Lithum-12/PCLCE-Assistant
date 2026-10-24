@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PCL.Core.Assistant;
@@ -82,5 +83,40 @@ public class AssistantProjectLinksTest
         Assert.IsNull(AssistantProjectLinks.Parse("https://modrinth.com/user/x"));
         Assert.IsNull(AssistantProjectLinks.Parse("https://mcapi.org/mod/sodium"));
         Assert.IsNull(AssistantProjectLinks.Parse(""));
+    }
+
+    // 字段名照上游 ModComp._BuildFromCurseForge 读的 FuzzyMod 形状手写的一份，
+    // 他贴上真 key 之后应该换成从 api.curseforge.com 抓下来的原始响应
+    [TestMethod]
+    public void ParseCurseForgeHit_ReadsFuzzyModFields()
+    {
+        const string body = """
+            {"data":[{"id":328085,"name":"Sodium","slug":"sodium",
+              "summary":"A free and open-source Fabric mod",
+              "downloadCount":11300000,"dateReleased":"2026-10-02T09:00:00Z",
+              "logo":{"thumbnailUrl":"https://media.curseforge.com/t.png","url":"https://media.curseforge.com/f.png"},
+              "links":{"websiteUrl":"https://www.curseforge.com/minecraft/mc-mods/sodium/"}}]}
+            """;
+
+        var info = AssistantProjectLinks.ParseCurseForgeHit(body);
+
+        Assert.IsNotNull(info);
+        Assert.AreEqual("Sodium", info!.Title);
+        Assert.AreEqual("https://media.curseforge.com/t.png", info.IconUrl);
+        Assert.AreEqual(11300000, info.Downloads);
+        Assert.AreEqual("CurseForge", info.Source);
+        Assert.IsTrue(info.UpdatedAt > DateTime.MinValue);
+    }
+
+    [TestMethod]
+    public void ParseCurseForgeHit_FallsBackAndRejectsEmptyShapes()
+    {
+        var info = AssistantProjectLinks.ParseCurseForgeHit("""{"data":[{"name":"X","iconUrl":"https://c/i.png"}]}""");
+        Assert.AreEqual("https://c/i.png", info!.IconUrl);
+        Assert.AreEqual(0, info.Downloads);
+        Assert.AreEqual(DateTime.MinValue, info.UpdatedAt);
+
+        Assert.IsNull(AssistantProjectLinks.ParseCurseForgeHit("""{"data":[]}"""));
+        Assert.IsNull(AssistantProjectLinks.ParseCurseForgeHit("not json"));
     }
 }

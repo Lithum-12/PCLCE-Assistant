@@ -64,14 +64,16 @@ internal sealed class AssistantToolset
 
     private static readonly Regex WhitespaceRegex = new(@"\s{2,}", RegexOptions.CultureInvariant);
 
-    private static IReadOnlyDictionary<string, string> CurseForgeClassIds { get; } =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    // classId 与 URL 段照搬上游 ModComp 里那份跑通的表 curseForgeCategoryClassIds：
+    // 猜的 id 要么筛不到东西，把 modpack 链接写成 mc-mods 更是直接 404。
+    // 上游没收录的类型（世界、数据包）就不筛，交给 searchFilter 全文命中
+    private static IReadOnlyDictionary<string, (string ClassId, string Segment)> CurseForgeClasses { get; } =
+        new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
         {
-            ["mod"] = "6",
-            ["modpack"] = "4471",
-            ["resourcepack"] = "12",
-            ["datapack"] = "6945",
-            ["world"] = "17"
+            ["mod"] = ("6", "mc-mods"),
+            ["modpack"] = ("4471", "modpacks"),
+            ["resourcepack"] = ("12", "texture-packs"),
+            ["shader"] = ("6552", "shaders")
         };
 
     public async Task<AssistantToolOutcome> RunAsync(AssistantToolCall call, CancellationToken token)
@@ -139,7 +141,7 @@ internal sealed class AssistantToolset
                 "在 CurseForge 上搜索模组与整合包，返回名称、slug、下载量与简介。",
                 [
                     new AssistantToolParam("query", "搜索关键词"),
-                    new AssistantToolParam("project_type", "可选，mod / modpack / resourcepack / datapack / world"),
+                    new AssistantToolParam("project_type", "可选，mod / modpack / resourcepack / shader"),
                     new AssistantToolParam("limit", "可选，返回条数，1 到 15，默认 6")
                 ]));
 
@@ -361,9 +363,10 @@ internal sealed class AssistantToolset
         if (!AssistantCurseForge.Available) return (NoCurseForgeKey, "未配置密钥", true);
 
         var limit = Clamp(ToInt(Args(args, "limit"), DefaultResults), 1, 50);
+        var type = Args(args, "project_type");
+        var known = CurseForgeClasses.TryGetValue(type, out var cls);
         var url = new StringBuilder($"https://api.curseforge.com/v1/mods/search?gameId=432&sortField=2&sortOrder=desc&pageSize={limit}");
-        if (CurseForgeClassIds.TryGetValue(Args(args, "project_type"), out var classId))
-            url.Append("&classId=").Append(classId);
+        if (known) url.Append("&classId=").Append(cls.ClassId);
         url.Append("&searchFilter=").Append(WebUtility.UrlEncode(query));
 
         var (body, error) = await AssistantWeb.GetAsync(url.ToString(), AssistantCurseForge.Key, token);
@@ -381,10 +384,14 @@ internal sealed class AssistantToolset
                 var name = Str(item, "name");
                 var slug = Str(item, "slug");
                 var summary = Shorten(Str(item, "summary"), 120);
+                // 页面地址优先用响应里的 links.websiteUrl：分类段是自己拼的，拼错就是 404
+                var page = Nested(item, "links", "websiteUrl");
+                if (page.Length == 0)
+                    page = $"https://www.curseforge.com/minecraft/{(known ? cls.Segment : "mc-mods")}/{slug}";
                 builder.Append("- ").Append(name)
                     .Append("（下载 ").Append(Str(item, "downloadCount")).Append("）")
                     .Append(string.IsNullOrEmpty(summary) ? "" : $"：{summary}")
-                    .Append($"\n  页面 https://www.curseforge.com/minecraft/mc-mods/{slug}").Append('\n');
+                    .Append($"\n  页面 {page}").Append('\n');
             }
 
             AddTrace($"CurseForge 搜索 “{query}”");
@@ -473,6 +480,9 @@ internal sealed class AssistantToolset
                 ? value.GetString() ?? ""
                 : value.GetRawText()
             : "";
+
+    private static string Nested(JsonElement element, string outer, string inner) =>
+        element.TryGetProperty(outer, out var o) && o.ValueKind == JsonValueKind.Object ? Str(o, inner) : "";
 
     private static string Shorten(string text, int max) =>
         string.IsNullOrEmpty(text) || text.Length <= max ? text ?? "" : text[..max] + "…";
