@@ -13,6 +13,7 @@
 私有代码全部位于：
 
 - `PCL.Core/Assistant/`
+- `PCL.Core.Test/Assistant/`
 - `Plain Craft Launcher 2/Assistant/`
 - `assistant/`（本文档与工具）
 
@@ -22,7 +23,7 @@
 
 ## 上游改动清单（哨兵 `[ASSISTANT]`）
 
-只有 6 个上游文件被改动，共 12 处，每次同步后必须逐条复核：
+只有 7 个上游文件被改动，共 12 处，每次同步后必须逐条复核：
 
 | 文件 | 处数 | 内容 |
 |---|---|---|
@@ -40,6 +41,22 @@
 powershell -NoProfile -File assistant/check-hooks.ps1
 ```
 
+脚本还有第二道检查：拿 `upstream/dev` 做基线，把私有目录以外被改动的文件列出来，
+只要有一个不在上表（登记表）里就直接失败——防止"改了上游文件但忘了打哨兵"，
+那种改动在下次 merge 时会静默丢掉。新增文件（`A`）单独计数、不算失败，因为多一个文件不影响合并。
+输出里的 `parity` 一行就是当前相对上游的落地面积，目标是它长期停在 `7 个 / 12 处`。
+
+> 本脚本必须存成 **UTF-8 with BOM**：Windows PowerShell 5.1 在没有 BOM 时按 GBK 解码，
+> 中文字符串会把引号吃掉导致 `UnexpectedToken`（`pwsh` 7 不会）。
+
+## 加东西之前的规矩
+
+- 新功能一律新增文件，不改上游文件；确实要改的，只允许一行哨兵式的注入点（字段 + 一次调用），并同步登记到上表与本脚本。
+- 不重写上游方法体、不挪上游代码块、不格式化上游文件——diff 越干净，`git merge upstream/dev` 越接近自动完成。
+- 配置项走上游的 `ConfigGenerator`（`[ConfigGroup]` + `[ConfigItem]` / `[AnyConfigItem]`），声明在 `PCL.Core/Assistant/AssistantConfig.cs`，不要往 `PCL.Core/App/Config.cs` 里加。
+- 字符串走 `AssistantHooks` 里的 fork 私有字典，不动上游的语言文件。
+- UI 复用上游控件与度量（`MyCard` / `MyCheckBox` / `MyIconButton` / `MyListItem` / `MyHint`、28+9 的表单行高、`SharedSizeGroup="Name"`），图标名必须带 `lucide/` 前缀。
+
 ## 同步步骤
 
 ```bash
@@ -48,7 +65,7 @@ git checkout main
 git merge upstream/dev
 ```
 
-冲突预期只出现在上表 6 个文件。处理原则：
+冲突预期只出现在上表 7 个文件。处理原则：
 
 1. 先接受上游版本（`git checkout --theirs <file>`），再按上表把哨兵行重新加回去。
 2. 重跑 `assistant/check-hooks.ps1`。

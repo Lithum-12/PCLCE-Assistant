@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
 $expected = [ordered]@{
@@ -40,6 +40,45 @@ foreach ($file in $extra) {
         Write-Host "UNREGISTERED HOOK FILE  $file  (把它加进 assistant/SYNC.md 与本脚本)" -ForegroundColor Yellow
         $failed = $true
     }
+}
+
+# 哨兵之外还有一道硬检查：相对 upstream/dev，私有目录以外被"改"的上游文件必须都在登记表里。
+# 新增文件（A）不影响 merge，只统计；改动/删除上游文件（M/D/R）没登记就是给下次同步埋坑
+$privatePrefixes = @(
+    '^PCL\.Core/Assistant/',
+    '^PCL\.Core\.Test/Assistant/',
+    '^Plain Craft Launcher 2/Assistant/',
+    '^assistant/'
+)
+$upstreamRef = (@(& git rev-parse --verify -q 'upstream/dev') | Out-String).Trim()
+if ($LASTEXITCODE -eq 0 -and $upstreamRef) {
+    $rows = @(& git diff --name-status 'upstream/dev...HEAD' 2>$null | Where-Object { $_ })
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'SKIP  无法与 upstream/dev 比较（shallow clone？请在 pclce-full 里跑本脚本）' -ForegroundColor Yellow
+    } else {
+        $added = 0
+        $modified = 0
+        $stray = @()
+        foreach ($row in $rows) {
+            $parts = $row -split "`t"
+            $status = $parts[0]
+            $path = $parts[-1]
+            if ($privatePrefixes | Where-Object { $path -match $_ }) { continue }
+            if ($status -like 'A*') { $added++; continue }
+            $modified++
+            if (-not $expected.Contains($path)) { $stray += "$status $path" }
+        }
+        foreach ($file in $stray) {
+            Write-Host "UPSTREAM EDIT WITHOUT SENTINEL  $file" -ForegroundColor Red
+            $failed = $true
+        }
+        Write-Host ("parity  upstream/dev@{0}：上游文件改动 {1} 个（登记表 {2} 个 / 哨兵 {3} 处），未登记 {4} 个，fork 新增文件 {5} 个" -f `
+            $upstreamRef.Substring(0, 7), $modified, $expected.Count, (($expected.Values | Measure-Object -Sum).Sum),
+            $stray.Count, $added) -ForegroundColor DarkCyan
+        if ($stray.Count -eq 0) { Write-Host 'parity ok  上游文件改动全部在登记表内' -ForegroundColor DarkGreen }
+    }
+} else {
+    Write-Host 'SKIP  本地没有 upstream/dev 引用，只做了哨兵检查' -ForegroundColor Yellow
 }
 
 if ($failed) {
