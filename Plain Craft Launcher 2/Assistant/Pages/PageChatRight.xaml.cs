@@ -99,6 +99,23 @@ public partial class PageChatRight
             for (var i = 0; i < messages.Count; i++)
             {
                 var message = messages[i];
+                // 诊断提示用上游的警告框画出来，不占对话气泡
+                if (message.Role == "hint")
+                {
+                    PanMessages.Children.Add(new MyHint
+                    {
+                        Text = message.Content,
+                        Theme = message.Level switch
+                        {
+                            "warn" => MyHint.Themes.Yellow,
+                            "info" => MyHint.Themes.Blue,
+                            _ => MyHint.Themes.Red
+                        },
+                        Margin = new Thickness(0, 0, 0, 10)
+                    });
+                    continue;
+                }
+
                 AppendBubble(session, i,
                     message.Role == "user" ? "Assistant.Chat.RoleUser" : "Assistant.Chat.RoleAssistant",
                     message.Content,
@@ -126,7 +143,7 @@ public partial class PageChatRight
         session.DraftText = "";
         if (!Config.Assistant.Enabled)
         {
-            AssistantSessionStore.AppendAssistantMessage(session, Lang.Text("Assistant.Chat.Disabled"));
+            AssistantSessionStore.AppendHintMessage(session, "warn", Lang.Text("Assistant.Chat.Disabled"));
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
             return;
         }
@@ -135,7 +152,7 @@ public partial class PageChatRight
             string.IsNullOrWhiteSpace(Config.Assistant.ApiBaseUrl) ||
             string.IsNullOrWhiteSpace(Config.Assistant.ModelName))
         {
-            AssistantSessionStore.AppendAssistantMessage(session, Lang.Text("Assistant.Chat.NotConfigured"));
+            AssistantSessionStore.AppendHintMessage(session, "warn", Lang.Text("Assistant.Chat.NotConfigured"));
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
             return;
         }
@@ -153,7 +170,8 @@ public partial class PageChatRight
         // 实例在发送时就固定，回答中途切换实例不会把两份数据混在一起
         var toolset = new AssistantToolset(ModInstanceList.McMcInstanceSelected);
         var history = new List<AssistantMessage> { new("system", BuildSystemPrompt()) };
-        history.AddRange(session.Messages.GetRange(0, answerIndex));
+        // 警告框只是给人看的诊断，不能混进模型上下文
+        history.AddRange(session.Messages.GetRange(0, answerIndex).Where(m => m.Role != "hint"));
         var progress = new InlineProgress<string>(delta =>
         {
             response.Append(delta);
@@ -163,6 +181,7 @@ public partial class PageChatRight
         });
         var toolsRejected = false;
         var toolChars = 0;
+        AssistantIssue? issue = null;
         _streamStatus?.ShowThinking(Lang.Text("Assistant.Chat.Thinking"));
         try
         {
@@ -214,22 +233,22 @@ public partial class PageChatRight
         {
             response.Append(Lang.Text("Assistant.Chat.Stopped"));
         }
-        catch (AssistantException e)
-        {
-            response.Clear();
-            response.Append(e.Detail is null ? e.Message : $"{e.Message}\n{e.Detail}");
-        }
         catch (Exception e)
         {
-            response.Clear();
-            response.Append(e.Message);
+            // 归成"没配密钥 / 余额不足 / 网络不通 / 服务商挂了"这类人话，用上游的警告框画出来
+            issue = AssistantErrors.Classify(e);
         }
         finally
         {
             _markdownTimer.Stop();
             FlushStreamMarkdown();
-            var final = response.ToString() + BuildTraceFooter(toolset.Trace, toolsRejected);
-            AssistantSessionStore.CompleteAssistantMessage(session, answerIndex, final);
+            if (issue is not null && response.Length == 0)
+                AssistantSessionStore.RemoveMessage(session, answerIndex); // 一个字都没出来，别留个空气泡
+            else
+                AssistantSessionStore.CompleteAssistantMessage(session, answerIndex,
+                    response + BuildTraceFooter(toolset.Trace, toolsRejected));
+            if (issue is not null)
+                AssistantSessionStore.AppendHintMessage(session, issue.Level, IssueText(issue));
             if (_runs.TryGetValue(session.Id, out var active) && ReferenceEquals(active, cts))
                 _runs.Remove(session.Id);
             cts.Dispose();
@@ -238,6 +257,12 @@ public partial class PageChatRight
             UpdateInputState();
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
         }
+    }
+
+    private static string IssueText(AssistantIssue issue)
+    {
+        var text = Lang.Text(issue.Key);
+        return issue.Detail.Length == 0 ? text : $"{text}（{issue.Detail}）";
     }
 
     /// <summary>把"到底发了什么出去"写在回答末尾，而不是藏在日志里。</summary>

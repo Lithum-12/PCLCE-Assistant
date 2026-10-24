@@ -14,6 +14,9 @@ namespace PCL.Core.Assistant;
 
 public sealed record AssistantMessage(string Role, string Content)
 {
+    /// <summary>role=="hint" 时的严重级别：info / warn / error。提示只给人看，不进模型上下文。</summary>
+    public string Level { get; init; } = "";
+
     /// <summary>role=="tool" 时对应的调用 id。</summary>
     public string? ToolCallId { get; init; }
 

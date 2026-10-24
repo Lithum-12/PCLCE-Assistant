@@ -97,4 +97,54 @@ public class AssistantSessionStoreTest
         Assert.IsFalse(AssistantSessionStore.Sessions.Contains(session));
         Assert.AreEqual("[]", File.ReadAllText(AssistantSessionStore.StorePath));
     }
+
+    [TestMethod]
+    public void AppendHintMessage_KeepsLevelAndDoesNotLookLikeAnAnswer()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "在吗");
+        AssistantSessionStore.AppendHintMessage(session, "warn", "还没有配置 API 密钥");
+
+        var hint = session.Messages[1];
+        Assert.AreEqual("hint", hint.Role);
+        Assert.AreEqual("warn", hint.Level);
+    }
+
+    [TestMethod]
+    public void HintMessage_SurvivesSaveAndReload()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "在吗");
+        AssistantSessionStore.AppendHintMessage(session, "error", "余额不足");
+
+        var reloaded = AssistantSessionStore.Load();
+
+        Assert.AreEqual("hint", reloaded[0].Messages[1].Role);
+        Assert.AreEqual("error", reloaded[0].Messages[1].Level);
+    }
+
+    [TestMethod]
+    public void RemoveMessage_DropsTheEmptyPlaceholderAfterAFailedRequest()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "在吗");
+        var placeholder = AssistantSessionStore.AppendAssistantMessage(session, "");
+
+        AssistantSessionStore.RemoveMessage(session, placeholder);
+        AssistantSessionStore.RemoveMessage(session, 99); // 越界不动手
+
+        Assert.AreEqual(1, session.Messages.Count);
+    }
+
+    [TestMethod]
+    public void UpdateMessage_PreservesLevelSoHintsDoNotLoseTheirKind()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "在吗");
+        AssistantSessionStore.AppendHintMessage(session, "warn", "旧文案");
+        AssistantSessionStore.UpdateMessage(session, 1, "新文案");
+
+        Assert.AreEqual("warn", session.Messages[1].Level);
+        Assert.AreEqual("新文案", session.Messages[1].Content);
+    }
 }

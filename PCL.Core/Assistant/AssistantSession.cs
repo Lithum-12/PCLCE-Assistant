@@ -165,11 +165,30 @@ public static class AssistantSessionStore
         return session.Messages.Count - 1;
     }
 
+    /// <summary>诊断提示走独立 role：只给人看，不会被拼进模型上下文。</summary>
+    public static void AppendHintMessage(AssistantSession session, string level, string content)
+    {
+        Track(session);
+        session.Messages.Add(new AssistantMessage("hint", content) { Level = level });
+        Touch(session);
+        Save();
+    }
+
+    /// <summary>请求在吐出任何内容之前就失败了，把空占位气泡收回去。</summary>
+    public static void RemoveMessage(AssistantSession session, int index)
+    {
+        if (index < 0 || index >= session.Messages.Count) return;
+        session.Messages.RemoveAt(index);
+        Touch(session);
+        Save();
+    }
+
     /// <summary>Updates a streaming assistant message in memory; final persistence is explicit.</summary>
     public static void UpdateMessage(AssistantSession session, int index, string content)
     {
         if (index < 0 || index >= session.Messages.Count) return;
-        session.Messages[index] = new AssistantMessage(session.Messages[index].Role, content);
+        var previous = session.Messages[index];
+        session.Messages[index] = previous with { Content = content };
     }
 
     public static void CompleteAssistantMessage(AssistantSession session, int index, string content)
@@ -219,7 +238,7 @@ public static class AssistantSessionStore
     private static void Touch(AssistantSession session) =>
         session.UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-    private static List<AssistantSession> Load()
+    internal static List<AssistantSession> Load()
     {
         try
         {
