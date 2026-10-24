@@ -33,7 +33,6 @@ public static class AssistantSessionStore
         Sessions.Insert(0, session);
         Current = session;
         Save();
-        Changed?.Invoke();
         return session;
     }
 
@@ -49,7 +48,6 @@ public static class AssistantSessionStore
         Sessions.Remove(session);
         if (ReferenceEquals(Current, session)) Current = null;
         Save();
-        Changed?.Invoke();
     }
 
     public static void Save()
@@ -62,6 +60,7 @@ public static class AssistantSessionStore
         {
             // 写盘失败不应打断对话
         }
+        Changed?.Invoke();
     }
 
     private static List<AssistantSession> Load()

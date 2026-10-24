@@ -17,31 +17,46 @@ public partial class PageChatRight
     public PageChatRight()
     {
         InitializeComponent();
-        Loaded += (_, _) => RenderMessages();
+        PageEnter += RenderCurrentSession;
         InputBar.SendRequested += text => _ = SendAsync(text);
         InputBar.StopRequested += () => _cts?.Cancel();
     }
 
+    /// <summary>
+    ///     空会话不重复新建，避免连点“新对话”堆积空白记录。
+    /// </summary>
     public void NewConversation()
     {
-        AssistantSessionStore.New();
-        RenderMessages();
+        var current = AssistantSessionStore.Current;
+        if (current is null || current.Messages.Count > 0) AssistantSessionStore.New();
+        RenderCurrentSession();
     }
 
-    public void LoadSession(AssistantSession session)
+    public void SendFromExternal(string text)
     {
-        AssistantSessionStore.Use(session);
-        RenderMessages();
-    }
+        if (IsLoaded)
+        {
+            _ = SendAsync(text);
+            return;
+        }
 
-    public void SendFromExternal(string text) => _ = SendAsync(text);
+        // Let the page's normal Loaded handler restore the selected session before sending.
+        RoutedEventHandler? onLoaded = null;
+        onLoaded = (_, _) =>
+        {
+            Loaded -= onLoaded;
+            _ = SendAsync(text);
+        };
+        Loaded += onLoaded;
+    }
 
     private AssistantSession CurrentSession =>
         AssistantSessionStore.Current ?? AssistantSessionStore.New();
 
-    private void RenderMessages()
+    public void RenderCurrentSession()
     {
         PanMessages.Children.Clear();
+        PanMessages.Children.Add(TextEmpty);
         var messages = AssistantSessionStore.Current?.Messages;
         TextEmpty.Visibility = messages is null || messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (messages is null) return;
@@ -52,9 +67,19 @@ public partial class PageChatRight
 
     private async Task SendAsync(string input)
     {
+        var session = CurrentSession;
+        if (string.IsNullOrWhiteSpace(session.Title))
+            session.Title = input.Length > 24 ? input[..24] : input;
+
+        TextEmpty.Visibility = Visibility.Collapsed;
+        AppendBubble("Assistant.Chat.RoleUser", input);
+        session.Messages.Add(new AssistantMessage("user", input));
+        // Persist the user turn and refresh the history title before the network request starts.
+        AssistantSessionStore.Save();
+
         if (!Config.Assistant.Enabled)
         {
-            AppendBubble("Assistant.Chat.RoleAssistant", Lang.Text("Assistant.Chat.Disabled"));
+            AppendStoredResponse(session, Lang.Text("Assistant.Chat.Disabled"));
             return;
         }
 
@@ -62,21 +87,13 @@ public partial class PageChatRight
             string.IsNullOrWhiteSpace(Config.Assistant.ApiBaseUrl) ||
             string.IsNullOrWhiteSpace(Config.Assistant.ModelName))
         {
-            AppendBubble("Assistant.Chat.RoleUser", input);
-            AppendBubble("Assistant.Chat.RoleAssistant", Lang.Text("Assistant.Chat.NotConfigured"));
+            AppendStoredResponse(session, Lang.Text("Assistant.Chat.NotConfigured"));
             return;
         }
 
-        var session = CurrentSession;
-        if (string.IsNullOrWhiteSpace(session.Title))
-            session.Title = input.Length > 24 ? input[..24] + "…" : input;
-
-        TextEmpty.Visibility = Visibility.Collapsed;
-        AppendBubble("Assistant.Chat.RoleUser", input);
-        session.Messages.Add(new AssistantMessage("user", input));
         var answer = AppendBubble("Assistant.Chat.RoleAssistant", "");
-
-        _cts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
+        _cts = cts;
         InputBar.SetBusy(true);
         try
         {
@@ -88,7 +105,7 @@ public partial class PageChatRight
                 {
                     answer.Text += delta;
                     PanBack.ScrollToBottom();
-                }), _cts.Token);
+                }), cts.Token);
             answer.Text = text;
         }
         catch (OperationCanceledException)
@@ -105,12 +122,23 @@ public partial class PageChatRight
         }
         finally
         {
-            InputBar.SetBusy(false);
-            _cts.Dispose();
-            _cts = null;
             if (answer.Text.Length > 0) session.Messages.Add(new AssistantMessage("assistant", answer.Text));
+            if (ReferenceEquals(_cts, cts))
+            {
+                InputBar.SetBusy(false);
+                _cts = null;
+            }
+            cts.Dispose();
             AssistantSessionStore.Save();
+            if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
         }
+    }
+
+    private void AppendStoredResponse(AssistantSession session, string text)
+    {
+        AppendBubble("Assistant.Chat.RoleAssistant", text);
+        session.Messages.Add(new AssistantMessage("assistant", text));
+        AssistantSessionStore.Save();
     }
 
     private string BuildSystemPrompt()
