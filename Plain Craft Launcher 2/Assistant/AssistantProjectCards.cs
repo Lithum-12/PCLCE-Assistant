@@ -123,7 +123,7 @@ internal static class AssistantProjectCards
             _title.Text = info.Title;
             _slug.Text = _link.Slug;
             _description.Text = info.Description;
-            if (!string.IsNullOrEmpty(info.IconUrl)) _logo.Source = info.IconUrl;
+            LoadIcon(info.IconUrl);
             _meta.Children.Clear();
             AddMeta("lucide/layout-list", info.LoaderText);
             AddMeta("lucide/download", info.Downloads > 0 ? Lang.CompactNumber(info.Downloads) : "");
@@ -131,6 +131,20 @@ internal static class AssistantProjectCards
                 info.UpdatedAt > DateTime.MinValue ? Lang.TimeSpan(info.UpdatedAt - DateTime.Now, 1) : "");
             // 来源单独占一格，跟下载页那张列表条目一样，不然只有标题旁边一小截灰字看不出是哪站的
             AddMeta("lucide/globe", info.Source);
+        }
+
+        /// <summary>
+        /// 先把图标下载到本地再交给 MyImage：它的 http 分支会在 UI 线程上发起下载，
+        /// 一张卡一个图标，网络稍慢整个窗口就跟着卡死。
+        /// </summary>
+        private void LoadIcon(string iconUrl)
+        {
+            if (string.IsNullOrEmpty(iconUrl)) return;
+            AssistantWeb.DownloadIconAsync(iconUrl).ContinueWith(t =>
+            {
+                var path = t.IsCompletedSuccessfully ? t.Result : null;
+                if (!string.IsNullOrEmpty(path)) ModBase.RunInUi(() => _logo.Source = path);
+            }, TaskScheduler.Default);
         }
 
         private void AddMeta(string icon, string text)

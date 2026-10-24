@@ -1,6 +1,9 @@
 using System;
+using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using PCL.Core.IO.Net.Http;
@@ -27,7 +30,42 @@ public static class AssistantWeb
         Timeout = TimeSpan.FromSeconds(20)
     };
 
-    public static async Task<(string? Body, string? Error)> GetAsync(string absoluteUrl, string? apiKey = null,
+    /// <summary>
+    /// 图标必须由这里先落到本地再交给 MyImage：MyImage 的 http 分支是在 UI 线程上发起下载的，
+    /// 一张卡一个图标，慢网络下整个启动器窗口会被它拖死。
+    /// </summary>
+    public static async Task<string?> DownloadIconAsync(string url, CancellationToken token = default)
+    {
+        try
+        {
+            var folder = Path.Combine(Path.GetTempPath(), "pclce-assistant-icons");
+            Directory.CreateDirectory(folder);
+            var key = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(url)))[..20];
+            var path = Path.Combine(folder, key + ExtensionFor(url));
+            if (File.Exists(path) && new FileInfo(path).Length > 0) return path;
+
+            var (bytes, error) = await GetBytesAsync(url, null, token);
+            if (bytes is null || bytes.Length == 0) return null;
+            File.WriteAllBytes(path, bytes);
+            return path;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    private static string ExtensionFor(string url)
+    {
+        var path = url.Split('?')[0];
+        foreach (var ext in new[] { ".png", ".jpg", ".jpeg", ".gif", ".svg" })
+            if (path.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                return ext;
+
+        return ".webp"; // Modrinth / CurseForge 的图标默认都是 webp，MyBitmap 会走 WIC 转换
+    }
+
+    public static async Task<(byte[]? Body, string? Error)> GetBytesAsync(string absoluteUrl, string? apiKey = null,
         CancellationToken token = default)
     {
         await Gate.WaitAsync(token);
@@ -36,9 +74,9 @@ public static class AssistantWeb
             using var request = new HttpRequestMessage(HttpMethod.Get, absoluteUrl);
             if (!string.IsNullOrEmpty(apiKey)) request.Headers.TryAddWithoutValidation("x-api-key", apiKey);
             using var response = await Client.SendAsync(request, token);
-            var text = await response.Content.ReadAsStringAsync(token);
+            var bytes = await response.Content.ReadAsByteArrayAsync(token);
             return response.IsSuccessStatusCode
-                ? (text, null)
+                ? (bytes, null)
                 : (null, $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -53,5 +91,12 @@ public static class AssistantWeb
         {
             Gate.Release();
         }
+    }
+
+    public static async Task<(string? Body, string? Error)> GetAsync(string absoluteUrl, string? apiKey = null,
+        CancellationToken token = default)
+    {
+        var (bytes, error) = await GetBytesAsync(absoluteUrl, apiKey, token);
+        return (bytes is null ? null : Encoding.UTF8.GetString(bytes), error);
     }
 }
