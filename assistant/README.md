@@ -17,6 +17,7 @@
 | `PCL.Core/Assistant/AssistantStream.cs` | SSE 分片累积：正文按序拼接，`tool_calls` 按 index 归并 |
 | `PCL.Core/Assistant/AssistantLocalReader.cs` | 实例文件提取：崩溃报告取头尾、日志只取尾部、mods 清单 |
 | `PCL.Core/Assistant/AssistantRedactor.cs` | 外发前脱敏：用户名与完整路径、IP、UUID、坐标、种子、账号名 |
+| `PCL.Core/Assistant/AssistantPermissions.cs` | 权限档位（需要审批 / 完全控制）的取值与判定，工具集按工具自己的 RequiresApproval 决定要不要弹确认 |
 | `PCL.Core/Assistant/AssistantSites.cs` | AI 可联网查阅的站点白名单与站内相对路径校验 |
 | `PCL.Core/Assistant/AssistantErrors.cs` | 把服务商错误归成"密钥无效 / 余额不足 / 网络 / 服务商挂了"等可提示类别 |
 | `PCL.Core/Assistant/AssistantTitles.cs` | 会话短标题：首次回答结束后再问一次模型，把左侧列表里截断的原文换成一句话 |

@@ -50,10 +50,14 @@ internal sealed class AssistantToolset
     {
         _instance = instance;
         _allowedSites = Config.Assistant.AllowedSites ?? [];
+        PermissionMode = AssistantPermissions.Parse(Config.Assistant.PermissionMode);
         Definitions = BuildDefinitions();
     }
 
     public IReadOnlyList<AssistantToolDef> Definitions { get; }
+
+    /// <summary>这一次发送用的是哪一档权限；工具集是按次构造的，中途改设置要下一轮才生效。</summary>
+    public AssistantPermissionMode PermissionMode { get; }
 
     public IReadOnlyList<string> Trace => _trace;
 
@@ -81,6 +85,14 @@ internal sealed class AssistantToolset
     public async Task<AssistantToolOutcome> RunAsync(AssistantToolCall call, CancellationToken token)
     {
         var args = ReadArguments(call.ArgumentsJson);
+        var definition = Definitions.FirstOrDefault(d => d.Name == call.Name);
+        if (definition is not null && AssistantPermissions.NeedsApproval(PermissionMode, definition.RequiresApproval) &&
+            !Approve(definition, args))
+        {
+            AddTrace($"拒绝 {definition.Name}");
+            return new AssistantToolOutcome(Refused(definition.Name), "已拒绝", false);
+        }
+
         var (content, note, failed) = call.Name switch
         {
             "read_crash_report" => ReadCrashReports(ToInt(Args(args, "max_files"), 2)),
@@ -171,6 +183,25 @@ internal sealed class AssistantToolset
         .Where(s => AssistantSites.Allows(s.Id, _allowedSites))
         .Select(s => s.Id)
         .ToList();
+
+    /// <summary>执行类工具的确认框：把要做什么、对哪儿做说清楚。拿不到主窗体时按拒绝处理，不默认放行。</summary>
+    private bool Approve(AssistantToolDef definition, Dictionary<string, string> args)
+    {
+        if (ModMain.frmMain is null) return false;
+        var (_, label) = Describe(definition.Name);
+        var detail = string.Join("，", args.Where(p => !string.IsNullOrEmpty(p.Value))
+            .Select(p => $"{p.Key}={Shorten(p.Value, 80)}"));
+        var result = ModMain.MyMsgBox(
+            Lang.Text("Assistant.Approval.Content", label, detail.Length == 0 ? "（无参数）" : detail),
+            Lang.Text("Assistant.Approval.Title"),
+            Lang.Text("Common.Action.Confirm"), Lang.Text("Common.Action.Cancel"), isWarn: true);
+        if (result == 1) AddTrace($"经你同意才执行 {label}");
+        return result == 1;
+    }
+
+    private static string Refused(string toolName) =>
+        $"用户在权限确认里拒绝了 {toolName}。不要重试同一个操作；基于已经拿到的信息继续回答，" +
+        "或者告诉用户这一步被跳过了、他可以在聊天底部的权限档位里改成「完全控制」。";
 
     private (string Content, string Note, bool Failed) ReadCrashReports(int maxFiles)
     {

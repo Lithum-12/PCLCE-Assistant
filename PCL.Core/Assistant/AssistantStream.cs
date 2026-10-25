@@ -9,7 +9,9 @@ namespace PCL.Core.Assistant;
 /// <summary>一个可暴露给模型的工具声明。参数统一是字符串型，减少各家接口对 schema 支持的差异。</summary>
 public sealed record AssistantToolParam(string Name, string Description);
 
-public sealed record AssistantToolDef(string Name, string Description, IReadOnlyList<AssistantToolParam> Parameters);
+/// <param name="RequiresApproval">这一档权限下执行前要不要先问用户；只读工具保持 false。</param>
+public sealed record AssistantToolDef(string Name, string Description, IReadOnlyList<AssistantToolParam> Parameters,
+    bool RequiresApproval = false);
 
 public sealed record AssistantToolCall(string Id, string Name, string ArgumentsJson);
 

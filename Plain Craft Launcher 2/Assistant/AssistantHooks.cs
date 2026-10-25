@@ -112,6 +112,12 @@ internal static class AssistantStrings
         ["Assistant.Chat.DeleteConfirm.Title"] = "删除对话",
         ["Assistant.Chat.DeleteConfirm"] = "确定要删除「{0}」吗？删除后无法恢复。",
         ["Assistant.Chat.LoadEarlier"] = "显示更早的 {0} 条消息",
+        ["Assistant.Chat.Permission.Ask"] = "需要审批",
+        ["Assistant.Chat.Permission.Ask.Tip"] = "只读操作（看崩溃报告、日志、mods 清单、查资源站与白名单站点）直接执行；会改动东西的操作会先弹窗问你。点一下切到「完全控制」。",
+        ["Assistant.Chat.Permission.Full"] = "完全控制",
+        ["Assistant.Chat.Permission.Full.Tip"] = "AI 请求的操作不再逐个确认，直接执行。当前版本它仍然只有只读能力，等执行类工具上线后这一档才会真正放开。点一下切回「需要审批」。",
+        ["Assistant.Approval.Title"] = "需要你的确认",
+        ["Assistant.Approval.Content"] = "AI 请求执行：{0}\n参数：{1}\n当前权限档位是「需要审批」，允许吗？",
         ["Assistant.Title.Instruction"] = """
             把下面这条玩家请求改写成不超过 12 个词的短标题，用来显示在会话列表里。
             与请求保持同一种语言（中文请求就给中文标题）；把专有名词写成常见写法与大小写（例如 neoforge → NeoForge、我的世界 → Minecraft、钠 → Sodium）；
@@ -205,6 +211,12 @@ internal static class AssistantStrings
         ["Assistant.Chat.DeleteConfirm.Title"] = "Delete conversation",
         ["Assistant.Chat.DeleteConfirm"] = "Delete “{0}”? This cannot be undone.",
         ["Assistant.Chat.LoadEarlier"] = "Show {0} earlier messages",
+        ["Assistant.Chat.Permission.Ask"] = "Ask first",
+        ["Assistant.Chat.Permission.Ask.Tip"] = "Read-only steps (crash reports, logs, the mods list, resource sites and whitelisted pages) run straight away; anything that would change something pops a confirmation first. Click to switch to Full control.",
+        ["Assistant.Chat.Permission.Full"] = "Full control",
+        ["Assistant.Chat.Permission.Full.Tip"] = "The assistant acts without asking each time. It still only has read-only tools in this build, so this tier starts to matter once the action tools land. Click to go back to Ask first.",
+        ["Assistant.Approval.Title"] = "Approval needed",
+        ["Assistant.Approval.Content"] = "The assistant wants to run: {0}\nArguments: {1}\nYour permission tier is \"Ask first\" - allow it?",
         ["Assistant.Title.Instruction"] = """
             Rewrite the player's request below as a conversation-list title of at most 8 words.
             Keep the language of the request; write proper nouns the usual way (e.g. neoforge → NeoForge, 我的世界 → Minecraft, 钠 → Sodium);

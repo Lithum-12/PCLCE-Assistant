@@ -25,9 +25,15 @@
                 <local:MyIconTextButton x:Name="BtnInstance" HorizontalAlignment="Left" VerticalAlignment="Center"
                                         Text="{DynamicResource Assistant.Chat.SelectInstance}"
                                         SvgIcon="lucide/package" Click="BtnInstance_Click" />
-                <local:MyComboBox x:Name="ComboModel" Width="220" DropDownWidthSync="False"
-                                  HorizontalAlignment="Right" VerticalAlignment="Center"
-                                  SelectionChanged="ComboModel_SelectionChanged" />
+                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal">
+                    <local:MyComboBox x:Name="ComboModel" Width="200" DropDownWidthSync="False"
+                                      VerticalAlignment="Center"
+                                      SelectionChanged="ComboModel_SelectionChanged" />
+                    <local:MyIconTextButton x:Name="BtnPermission" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            SvgIcon="lucide/shield-check"
+                                            Text="{DynamicResource Assistant.Chat.Permission.Ask}"
+                                            Click="BtnPermission_Click" />
+                </StackPanel>
             </Grid>
         </local:MyCard>
     </StackPanel>

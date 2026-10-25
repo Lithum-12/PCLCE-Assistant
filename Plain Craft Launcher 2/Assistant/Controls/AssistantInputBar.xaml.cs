@@ -24,6 +24,7 @@ public partial class AssistantInputBar
         {
             RefreshInstance();
             RefreshModels();
+            RefreshPermission();
         };
         States.Game.SelectedInstanceConfig.Observe(new ConfigObserver(ConfigEvent.Changed,
             _ => ModBase.RunInUi(RefreshInstance)));
@@ -49,6 +50,25 @@ public partial class AssistantInputBar
     private void BtnInstance_Click(object sender, ModBase.RouteEventArgs e)
     {
         ModMain.frmMain?.PageChange(FormMain.PageType.InstanceSelect);
+    }
+
+    private void RefreshPermission()
+    {
+        var full = AssistantPermissions.Parse(Config.Assistant.PermissionMode) == AssistantPermissionMode.Full;
+        BtnPermission.SvgIcon = full ? "lucide/wrench" : "lucide/shield-check";
+        BtnPermission.Text = Lang.Text(full ? "Assistant.Chat.Permission.Full" : "Assistant.Chat.Permission.Ask");
+        BtnPermission.ToolTip = Lang.Text(full
+            ? "Assistant.Chat.Permission.Full.Tip"
+            : "Assistant.Chat.Permission.Ask.Tip");
+    }
+
+    private void BtnPermission_Click(object sender, ModBase.RouteEventArgs e)
+    {
+        var next = AssistantPermissions.Parse(Config.Assistant.PermissionMode) == AssistantPermissionMode.Full
+            ? AssistantPermissionMode.Ask
+            : AssistantPermissionMode.Full;
+        Config.Assistant.PermissionMode = AssistantPermissions.ToConfig(next);
+        RefreshPermission();
     }
 
     private void RefreshInstance()
