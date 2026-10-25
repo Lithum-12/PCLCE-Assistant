@@ -29,6 +29,12 @@
 
 `PageChatRight` 是唯一聊天画面。`AssistantHome` 旧枚举值仍为兼容而存在，但被映射到同一个 `PageChatRight`，不得再创建第二个聊天页面或第二个输入框。
 
+## 落盘边界
+
+`Save()` 走"写 `.tmp` → 改名替换"，改名被挡时退回原地重写，且**任何异常都不允许逃出 `Save()`**。原因是 2026-10-25 03:27 的一次事故：连点删除会话时 `File.Move` 抛 `UnauthorizedAccessException`（目标文件被一个不给 `FILE_SHARE_DELETE` 的读句柄开着，索引器/杀软/编辑器都算），当时只 `catch (IOException)`，异常一路穿过 `DeleteSession` → `MyIconButton.Button_MouseUp` 落到 UI 线程上，窗口就此停住并占着单例锁，表现成"启动器崩溃"。
+
+启动时 `Load()` 会先处理 `.tmp` 残骸：比正式文件新就补位（否则上次没落地的删除会"复活"），更旧就直接丢掉。
+
 ## 流式请求隔离
 
 每个请求在开始时捕获具体 `AssistantSession`、响应消息索引和自己的 `CancellationTokenSource`。增量内容首先更新会话数据；只有当该会话仍为当前会话且消息气泡仍挂在当前视觉树中时，才更新可见文本框。切换到其他会话不会让旧请求将内容画到新会话上。停止按钮只取消当前所选会话的请求。

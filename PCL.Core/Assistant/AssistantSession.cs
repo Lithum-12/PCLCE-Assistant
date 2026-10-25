@@ -218,17 +218,50 @@ public static class AssistantSessionStore
             Sessions.Sort((a, b) => b.LastActivityAt.CompareTo(a.LastActivityAt));
             var directory = Path.GetDirectoryName(StorePath);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            var temporaryPath = StorePath + ".tmp";
-            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(Sessions, Options));
-            File.Move(temporaryPath, StorePath, true);
+            WriteStore(JsonSerializer.Serialize(Sessions, Options));
         }
-        catch (IOException)
+        catch (Exception)
         {
-            // A failed disk write must not interrupt a conversation; in-memory state remains usable.
+            // 落盘失败不能打断对话：内存里的 Sessions 才是当前这一轮的真相，下次写成功自然覆盖。
+            // 这里必须兜住所有异常：2026-10-25 03:27 连点删除会话时 File.Move 抛的是
+            // UnauthorizedAccessException，只 catch IOException 会让它一路穿到删除按钮的 Click 上，
+            // 整个启动器就停在 UI 线程里不动了（窗口卡住 + 占着单例锁，下次启动直接 exit(1)）。
         }
         finally
         {
             SessionsChanged?.Invoke();
+        }
+    }
+
+    /// <summary>先写临时文件再改名替换；改名被挡时退回原地重写，别让一次重命名失败丢掉这次删除。</summary>
+    private static void WriteStore(string json)
+    {
+        var temporaryPath = StorePath + ".tmp";
+        try
+        {
+            File.WriteAllText(temporaryPath, json);
+            File.Move(temporaryPath, StorePath, true);
+            return;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // 改名要对目标文件拿 DELETE 权限，只要有人用不给 FileShare.Delete 的句柄开着它（索引器、
+            // 杀软、编辑器都在范围内）就会失败；原地重写只需要目标允许写，那种只读共享挡不住它。
+        }
+
+        TryDelete(temporaryPath);
+        File.WriteAllText(StorePath, json);
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (Exception)
+        {
+            // 残留的 .tmp 下一次写会覆盖，不值得为它再抛一层
         }
     }
 
@@ -246,6 +279,7 @@ public static class AssistantSessionStore
     {
         try
         {
+            RecoverStaleTemp();
             if (!File.Exists(StorePath)) return [];
             var sessions = JsonSerializer.Deserialize<List<AssistantSession>>(File.ReadAllText(StorePath)) ?? [];
             // Older versions persisted empty sessions. They are drafts, not useful history entries.
@@ -258,6 +292,32 @@ public static class AssistantSessionStore
         {
             // A malformed history file must not prevent the launcher from opening.
             return [];
+        }
+    }
+
+    /// <summary>
+    /// 改名被挡时会留下 .tmp，那份内容才是最后一次成功写出的状态：比正式文件新就补位，
+    /// 否则当残骸丢掉。不这么做的话，上次没落地的删除会在下次启动时又"复活"。
+    /// </summary>
+    private static void RecoverStaleTemp()
+    {
+        var tempPath = StorePath + ".tmp";
+        try
+        {
+            if (!File.Exists(tempPath)) return;
+            if (File.Exists(StorePath) &&
+                File.GetLastWriteTimeUtc(tempPath) <= File.GetLastWriteTimeUtc(StorePath))
+            {
+                File.Delete(tempPath);
+                return;
+            }
+
+            File.Copy(tempPath, StorePath, true);
+            File.Delete(tempPath);
+        }
+        catch (Exception)
+        {
+            // 补位失败就算了，不能让启动流程挂在这
         }
     }
 }

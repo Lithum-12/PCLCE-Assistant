@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PCL.Core.Assistant;
 
@@ -23,6 +25,8 @@ public class AssistantSessionStoreTest
     {
         var path = AssistantSessionStore.StorePath;
         if (File.Exists(path)) File.Delete(path);
+        var temp = path + ".tmp";
+        if (File.Exists(temp)) File.Delete(temp);
     }
 
     [TestMethod]
@@ -173,5 +177,85 @@ public class AssistantSessionStoreTest
         AssistantSessionStore.CompleteAssistantMessage(session, answer, "纯聊天回答");
 
         Assert.IsNull(session.Messages[answer].Trace);
+    }
+
+    [TestMethod]
+    public void Save_WhenRenameIsBlocked_RewritesInPlaceAndNeverThrows()
+    {
+        var keep = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(keep, "留着的内容");
+
+        // 复现 2026-10-25 03:27 连点删除时的现场：目标文件被一个不给 FILE_SHARE_DELETE 的读句柄
+        // 开着（索引器/杀软/编辑器都算），File.Move 直接抛 UnauthorizedAccessException。
+        // 那时候 Save 只 catch IOException，异常一路穿到删除按钮的 Click 上，UI 线程就停在那了。
+        using (new FileStream(AssistantSessionStore.StorePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        {
+            // 先确认这个句柄真的挡住了改名，否则整条测试只是走运通过，测不到退回写
+            var probe = AssistantSessionStore.StorePath + ".probe";
+            var renameBlocked = false;
+            try
+            {
+                File.WriteAllText(probe, "probe");
+                File.Move(probe, AssistantSessionStore.StorePath, true);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                renameBlocked = true;
+            }
+
+            Assert.IsTrue(renameBlocked, "File.Move 没有被挡住，测试前提不成立");
+            if (File.Exists(probe)) File.Delete(probe);
+
+            var doomed = AssistantSessionStore.StartNewDraft();
+            AssistantSessionStore.AppendUserMessage(doomed, "被删掉的那条");
+            AssistantSessionStore.Delete(doomed);
+        }
+
+        // 序列化默认转义非 ASCII，所以按 Title 比对而不是按原文子串
+        using var doc = JsonDocument.Parse(File.ReadAllText(AssistantSessionStore.StorePath));
+        var titles = doc.RootElement.EnumerateArray().Select(s => s.GetProperty("Title").GetString()).ToList();
+        CollectionAssert.Contains(titles, "留着的内容");
+        Assert.IsFalse(titles.Contains("被删掉的那条"));
+        Assert.IsFalse(File.Exists(AssistantSessionStore.StorePath + ".tmp"));
+    }
+
+    [TestMethod]
+    public void Load_PromotesTheNewerTempFileLeftByABlockedRename()
+    {
+        var keep = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(keep, "留着的内容");
+        var doomed = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(doomed, "被删掉的那条");
+        var beforeDelete = File.ReadAllText(AssistantSessionStore.StorePath);
+
+        AssistantSessionStore.Delete(doomed);
+        Assert.AreEqual(1, AssistantSessionStore.Load().Count);
+
+        // .tmp 里存的是"删除之前"那份，且时间戳更新 —— 就是改名被挡时的现场
+        // （必须在最后一次 Save 之后再摆，否则会被 Save 自己写的 .tmp 覆盖掉）
+        var tempPath = AssistantSessionStore.StorePath + ".tmp";
+        File.WriteAllText(tempPath, beforeDelete);
+        File.SetLastWriteTimeUtc(tempPath, File.GetLastWriteTimeUtc(AssistantSessionStore.StorePath).AddSeconds(5));
+
+        var reloaded = AssistantSessionStore.Load();
+
+        Assert.AreEqual(2, reloaded.Count);
+        Assert.IsFalse(File.Exists(tempPath));
+    }
+
+    [TestMethod]
+    public void Load_DropsATempFileOlderThanTheStore()
+    {
+        var keep = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(keep, "留着的内容");
+
+        var tempPath = AssistantSessionStore.StorePath + ".tmp";
+        File.WriteAllText(tempPath, "[]");
+        File.SetLastWriteTimeUtc(tempPath, File.GetLastWriteTimeUtc(AssistantSessionStore.StorePath).AddSeconds(-30));
+
+        var reloaded = AssistantSessionStore.Load();
+
+        Assert.AreEqual(1, reloaded.Count);
+        Assert.IsFalse(File.Exists(tempPath));
     }
 }
