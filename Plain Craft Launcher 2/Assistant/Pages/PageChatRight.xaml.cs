@@ -24,6 +24,13 @@ public partial class PageChatRight
     // 一轮问答里最多允许带上多少字的本地内容，超过就不再执行新工具
     private const int MaxToolChars = 24000;
 
+    // 一次只画最近这么多条：每条消息是一个 MyCard + 一次 Markdig 解析，
+    // 长对话全量重建就是"切换会话卡一下"的来源，跟发给模型的上下文长度无关
+    private const int RenderWindow = 24;
+
+    // 入场动画只给最靠近输入框的几条做，几十条一起起故事板会直接掉帧
+    private const int AnimatedControls = 8;
+
     // A response belongs to its session, not to whichever session happens to be selected later.
     private readonly Dictionary<string, CancellationTokenSource> _runs = new();
     private readonly HashSet<string> _discardDraftOnSwitch = new();
@@ -32,6 +39,9 @@ public partial class PageChatRight
     private readonly DispatcherTimer _markdownTimer;
     private AssistantSession? _renderedSession;
     private string? _renderedSessionId;
+    // -1 表示"取尾部窗口"；点了"显示更早的消息"之后就是显式起点
+    private int _windowStart = -1;
+    private int _scrollAnchorIndex = -1;
     private MarkdownViewer? _streamViewer;
     private AssistantStatusPanel? _streamStatus;
     private AssistantSession? _streamSession;
@@ -86,6 +96,7 @@ public partial class PageChatRight
     {
         var session = AssistantSessionStore.Current;
         var switched = !string.Equals(_renderedSessionId, session?.Id, StringComparison.Ordinal);
+        if (switched) _windowStart = -1; // 换会话回到尾部窗口，别把上一个会话展开的整段历史带过来
         PanMessages.Children.Clear();
         _streamViewer = null;
         _streamStatus = null;
@@ -95,9 +106,14 @@ public partial class PageChatRight
         TextEmpty.Visibility = messages is null || messages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         if (messages is not null)
         {
+            var start = _windowStart >= 0
+                ? Math.Min(_windowStart, messages.Count)
+                : Math.Max(0, messages.Count - RenderWindow);
+            if (start > 0) PanMessages.Children.Add(BuildEarlierButton(start, messages.Count - start));
             var generating = _runs.ContainsKey(session!.Id);
             _collapsed.TryGetValue(session.Id, out var collapsed);
-            for (var i = 0; i < messages.Count; i++)
+            collapsed ??= [];
+            for (var i = start; i < messages.Count; i++)
             {
                 var message = messages[i];
                 // 诊断提示用上游的警告框画出来，不占对话气泡
@@ -123,10 +139,50 @@ public partial class PageChatRight
             }
         }
 
-        PanBack.ScrollToBottom();
+        if (_scrollAnchorIndex >= 0)
+        {
+            // 点了"显示更早的消息"之后停在原来看的那条上，否则补出来的内容全在视野上面，像是没反应
+            var anchor = _scrollAnchorIndex;
+            _scrollAnchorIndex = -1;
+            FrameworkElement? target = null;
+            foreach (var child in PanMessages.Children)
+                if (child is FrameworkElement { Tag: BubbleSource(_, var index) } element && index == anchor)
+                {
+                    target = element;
+                    break;
+                }
+
+            if (target is not null)
+                Dispatcher.BeginInvoke(new Action(target.BringIntoView), DispatcherPriority.Render);
+        }
+        else
+        {
+            PanBack.ScrollToBottom();
+        }
+
         UpdateInputState();
         // 换会话只是换数据，不走页面路由，因此手动重播一次进入动画
         if (switched && IsLoaded && PageState == PageStates.ContentStay) ReplayEnterAnimation();
+    }
+
+    private MyIconTextButton BuildEarlierButton(int firstRenderedIndex, int hidden)
+    {
+        var button = new MyIconTextButton
+        {
+            SvgIcon = "lucide/chevrons-up",
+            Text = Lang.Text("Assistant.Chat.LoadEarlier", hidden),
+            Height = 28,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+        button.Click += (_, _) => ShowEarlier(firstRenderedIndex);
+        return button;
+    }
+
+    private void ShowEarlier(int anchorIndex)
+    {
+        _scrollAnchorIndex = anchorIndex;
+        _windowStart = Math.Max(0, anchorIndex - RenderWindow);
+        RenderCurrentSession();
     }
 
     private async Task SendAsync(string input)
@@ -508,14 +564,25 @@ public partial class PageChatRight
     /// </summary>
     private void ReplayEnterAnimation()
     {
+        var rendered = PanMessages.Children.OfType<FrameworkElement>().ToList();
         var controls = new List<FrameworkElement>();
-        foreach (var child in PanMessages.Children)
-            if (child is FrameworkElement element) controls.Add(element);
+        // 只给最靠近输入的几条做入场动画：整屏几十条一起铺故事板，切会话时就是它在掉帧
+        controls.AddRange(rendered.Skip(Math.Max(0, rendered.Count - AnimatedControls)));
         if (TextEmpty.Visibility == Visibility.Visible) controls.Add(TextEmpty);
         controls.AddRange(InputBar.AnimControls);
 
+        // 复位要覆盖全部：上一次动画做到一半的条目这次可能已经不在尾部窗口里，
+        // 不复位就会永远停在半透明上
+        foreach (var control in rendered)
+        {
+            control.IsHitTestVisible = true;
+            control.Opacity = 1d;
+            if (control.RenderTransform is TranslateTransform) control.RenderTransform = null;
+        }
+
         foreach (var control in controls)
         {
+            if (rendered.Contains(control)) continue; // 上面已经复位过了
             // TextEmpty 在 XAML 里声明了不吃点击（它盖在消息区上），重播动画时不该替它改回来
             if (!ReferenceEquals(control, TextEmpty)) control.IsHitTestVisible = true;
             control.Opacity = 1d;

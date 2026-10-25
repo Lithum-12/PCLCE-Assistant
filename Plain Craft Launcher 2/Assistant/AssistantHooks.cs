@@ -111,6 +111,7 @@ internal static class AssistantStrings
         ["Assistant.Chat.Tools.Rejected"] = "当前模型不接受工具调用，本次按普通对话回答。",
         ["Assistant.Chat.DeleteConfirm.Title"] = "删除对话",
         ["Assistant.Chat.DeleteConfirm"] = "确定要删除「{0}」吗？删除后无法恢复。",
+        ["Assistant.Chat.LoadEarlier"] = "显示更早的 {0} 条消息",
         ["Assistant.Title.Instruction"] = """
             把下面这条玩家请求改写成不超过 12 个词的短标题，用来显示在会话列表里。
             与请求保持同一种语言（中文请求就给中文标题）；把专有名词写成常见写法与大小写（例如 neoforge → NeoForge、我的世界 → Minecraft、钠 → Sodium）；
@@ -203,6 +204,7 @@ internal static class AssistantStrings
         ["Assistant.Chat.Tools.Rejected"] = "This model does not accept tool calls, so the answer came from plain chat.",
         ["Assistant.Chat.DeleteConfirm.Title"] = "Delete conversation",
         ["Assistant.Chat.DeleteConfirm"] = "Delete “{0}”? This cannot be undone.",
+        ["Assistant.Chat.LoadEarlier"] = "Show {0} earlier messages",
         ["Assistant.Title.Instruction"] = """
             Rewrite the player's request below as a conversation-list title of at most 8 words.
             Keep the language of the request; write proper nouns the usual way (e.g. neoforge → NeoForge, 我的世界 → Minecraft, 钠 → Sodium);

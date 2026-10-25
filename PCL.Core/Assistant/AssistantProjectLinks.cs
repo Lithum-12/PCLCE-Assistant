@@ -89,6 +89,10 @@ public static class AssistantProjectLinks
         return info;
     }
 
+    /// <summary>只读缓存，不发请求：卡片点击时先问一句，命中就省掉一个网络往返。</summary>
+    public static bool TryPeek(AssistantProjectLink link, out AssistantProjectInfo? info) =>
+        Cache.TryGetValue(link.Url, out info);
+
     /// <summary>给测试留的后门：同一 slug 不该为一张卡片发两次请求。</summary>
     internal static void ClearCache() => Cache.Clear();
 

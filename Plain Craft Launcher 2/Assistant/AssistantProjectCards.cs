@@ -58,6 +58,8 @@ internal static class AssistantProjectCards
         };
         private readonly StackPanel _meta = new() { Orientation = System.Windows.Controls.Orientation.Horizontal };
         private readonly AssistantProjectLink _link;
+        private bool _warmed;
+        private bool _busy;
 
         public ProjectCard(AssistantProjectLink link)
         {
@@ -107,8 +109,33 @@ internal static class AssistantProjectCards
 
             _title.Text = link.Slug;
             _description.Text = link.Url;
-            MouseLeftButtonUp += async (_, _) => await OpenAsync(_link);
+            // 悬停就把详情页要用的 CompProject 拉进缓存，点下去才不用干等一个网络往返
+            MouseEnter += (_, _) => Warm();
+            MouseLeftButtonUp += async (_, _) => await OpenClickedAsync();
             _ = FillAsync();
+        }
+
+        private void Warm()
+        {
+            if (_warmed) return; // 一张卡最多预热一次，划过滚轮不该刷一堆请求
+            _warmed = true;
+            _ = AssistantProjectCards.WarmAsync(_link);
+        }
+
+        private async Task OpenClickedAsync()
+        {
+            if (_busy) return; // 连点不再叠页面
+            _busy = true;
+            Opacity = 0.55d; // 慢网络下也要让人看见"这一下有反应"
+            try
+            {
+                await AssistantProjectCards.OpenAsync(_link);
+            }
+            finally
+            {
+                Opacity = 1d;
+                _busy = false;
+            }
         }
 
         private async Task FillAsync()
@@ -177,36 +204,73 @@ internal static class AssistantProjectCards
         }
     }
 
-    /// <summary>点卡片：能进启动器自己的资源详情页就进，退一步才开网页。</summary>
+    private static bool _opening;
+
+    /// <summary>
+    /// 点卡片：能进启动器自己的资源详情页就进，退一步才开网页。
+    /// 同一时刻只允许一次跳转，否则慢网络下连点会在稍后堆出好几个详情页。
+    /// </summary>
     public static async Task OpenAsync(AssistantProjectLink link)
+    {
+        if (_opening) return;
+        _opening = true;
+        ModComp.CompProject? project;
+        try
+        {
+            project = await ResolveAsync(link);
+        }
+        finally
+        {
+            _opening = false;
+        }
+
+        if (project is null || ModMain.frmMain is null)
+        {
+            ModBase.OpenWebsite(link.Url);
+            return;
+        }
+
+        ModMain.frmMain.PageChange(new FormMain.PageStackData
+        {
+            page = FormMain.PageType.CompDetail,
+            additional = (project, new List<string>(), string.Empty, ModComp.CompLoaderType.Any,
+                ModComp.CompType.Any, string.Empty)
+        });
+    }
+
+    /// <summary>悬停预取：结果不要紧，详情页读的是上游那张 compProjectCache。</summary>
+    public static async Task WarmAsync(AssistantProjectLink link)
     {
         try
         {
-            var info = await AssistantProjectLinks.FetchAsync(link);
-            if (info is null)
-            {
-                ModBase.OpenWebsite(link.Url);
-                return;
-            }
-
-            var projects = await ModComp.CompRequest.GetCompProjectsByIdsAsync([info.Id]);
-            if (projects.Count == 0)
-            {
-                ModBase.OpenWebsite(link.Url);
-                return;
-            }
-
-            ModMain.frmMain.PageChange(new FormMain.PageStackData
-            {
-                page = FormMain.PageType.CompDetail,
-                additional = (projects.First(), new List<string>(), string.Empty, ModComp.CompLoaderType.Any,
-                    ModComp.CompType.Any, null)
-            });
+            await ResolveAsync(link);
         }
         catch (Exception e)
         {
-            ModBase.Log(e, "[Assistant] 打开资源详情页失败，退回浏览器");
-            ModBase.OpenWebsite(link.Url);
+            ModBase.Log(e, "[Assistant] 预取资源信息失败");
+        }
+    }
+
+    /// <summary>
+    /// 详情页需要完整的 CompProject，而它只能从资源站再取一次——这一步就是原来那 0.5~6 秒。
+    /// 上游每构造一个 CompProject 都会写进 ModComp.compProjectCache，所以先查缓存，
+    /// 命中就直接跳转，看过的模组第二次点基本是秒开。
+    /// </summary>
+    private static async Task<ModComp.CompProject?> ResolveAsync(AssistantProjectLink link)
+    {
+        var info = AssistantProjectLinks.TryPeek(link, out var cached) ? cached : await FetchAsync(link);
+        if (info is null) return null;
+        if (ModComp.compProjectCache.TryGetValue(info.Id, out var known)) return known;
+
+        try
+        {
+            var projects = await ModComp.CompRequest.GetCompProjectsByIdsAsync([info.Id]);
+            return projects.Count > 0 ? projects.First() : null;
+        }
+        catch (Exception e)
+        {
+            ModBase.Log(e, "[Assistant] 获取资源详情失败，退回浏览器");
+            return null;
         }
     }
 }
