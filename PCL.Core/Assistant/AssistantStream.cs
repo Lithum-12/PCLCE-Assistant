@@ -9,9 +9,16 @@ namespace PCL.Core.Assistant;
 /// <summary>一个可暴露给模型的工具声明。参数统一是字符串型，减少各家接口对 schema 支持的差异。</summary>
 public sealed record AssistantToolParam(string Name, string Description);
 
-/// <param name="RequiresApproval">这一档权限下执行前要不要先问用户；只读工具保持 false。</param>
+/// <summary>工具会不会动到机器上的东西。Action 工具在只读档不挂载，在需要审批档逐个确认。</summary>
+public enum AssistantToolKind
+{
+    Read,
+    Action
+}
+
+/// <param name="Kind">Action = 会下载、写文件、改设置或跑脚本的工具。</param>
 public sealed record AssistantToolDef(string Name, string Description, IReadOnlyList<AssistantToolParam> Parameters,
-    bool RequiresApproval = false);
+    AssistantToolKind Kind = AssistantToolKind.Read);
 
 public sealed record AssistantToolCall(string Id, string Name, string ArgumentsJson);
 

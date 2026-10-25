@@ -54,19 +54,21 @@ public partial class AssistantInputBar
 
     private void RefreshPermission()
     {
-        var full = AssistantPermissions.Parse(Config.Assistant.PermissionMode) == AssistantPermissionMode.Full;
-        BtnPermission.SvgIcon = full ? "lucide/wrench" : "lucide/shield-check";
-        BtnPermission.Text = Lang.Text(full ? "Assistant.Chat.Permission.Full" : "Assistant.Chat.Permission.Ask");
-        BtnPermission.ToolTip = Lang.Text(full
-            ? "Assistant.Chat.Permission.Full.Tip"
-            : "Assistant.Chat.Permission.Ask.Tip");
+        var mode = AssistantPermissions.Parse(Config.Assistant.PermissionMode);
+        var (icon, key) = mode switch
+        {
+            AssistantPermissionMode.Read => ("lucide/search", "Read"),
+            AssistantPermissionMode.Full => ("lucide/wrench", "Full"),
+            _ => ("lucide/shield-check", "Ask")
+        };
+        BtnPermission.SvgIcon = icon;
+        BtnPermission.Text = Lang.Text($"Assistant.Chat.Permission.{key}");
+        BtnPermission.ToolTip = Lang.Text($"Assistant.Chat.Permission.{key}.Tip");
     }
 
     private void BtnPermission_Click(object sender, ModBase.RouteEventArgs e)
     {
-        var next = AssistantPermissions.Parse(Config.Assistant.PermissionMode) == AssistantPermissionMode.Full
-            ? AssistantPermissionMode.Ask
-            : AssistantPermissionMode.Full;
+        var next = AssistantPermissions.Next(AssistantPermissions.Parse(Config.Assistant.PermissionMode));
         Config.Assistant.PermissionMode = AssistantPermissions.ToConfig(next);
         RefreshPermission();
     }

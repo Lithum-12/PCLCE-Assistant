@@ -92,6 +92,10 @@ internal static class AssistantStrings
         ["Assistant.Tool.list_instance_files"] = "查看实例目录",
         ["Assistant.Tool.read_instance_file"] = "读取实例文件",
         ["Assistant.Tool.read_site"] = "查阅站点",
+        ["Assistant.Tool.download_resource"] = "下载资源",
+        ["Assistant.Tool.write_instance_file"] = "写入实例文件",
+        ["Assistant.Tool.set_launcher_config"] = "修改启动器设置",
+        ["Assistant.Tool.run_python"] = "执行 Python 脚本",
         ["Assistant.Chat.System"] = """
             你是 PCL CE 启动器内置的 Minecraft 助手，用界面语言回答。
 
@@ -109,13 +113,20 @@ internal static class AssistantStrings
             "请一律优先给 Modrinth、MC 百科、ModpackIndex 这些不需要代理的来源；确实只有 CurseForge 才有某项资源时，" +
             "直说这台机器上的启动器查不到 CurseForge，不要编造下载量、版本或更新时间。",
         ["Assistant.Chat.Tools.Rejected"] = "当前模型不接受工具调用，本次按普通对话回答。",
+        ["Assistant.Chat.System.Actions"] = """
+            【当前档位允许动手】除了读取，你现在真的可以执行：download_resource（用启动器自己的下载器把资源下到当前实例的对应目录）、write_instance_file（写实例里的文本文件，覆盖前会备份到实例下的 .pclce-assistant-backup）、set_launcher_config（改白名单里的启动器设置）、run_python（在当前实例目录下执行 Python）。
+
+            【动手的规矩】先给诊断和完整方案，再明确问一句"需要我帮你改吗"；玩家同意了才调用这些工具，不要替他做决定。工具返回失败或被拒绝时如实说出来，绝对不要假装已经改好。改完要讲清：改了哪个文件/哪个设置、改成了什么、上一个值或备份在哪里、怎么撤销。下载类任务只是"已经开始"，不要声称下载完成。
+            """,
         ["Assistant.Chat.DeleteConfirm.Title"] = "删除对话",
         ["Assistant.Chat.DeleteConfirm"] = "确定要删除「{0}」吗？删除后无法恢复。",
         ["Assistant.Chat.LoadEarlier"] = "显示更早的 {0} 条消息",
+        ["Assistant.Chat.Permission.Read"] = "只读",
+        ["Assistant.Chat.Permission.Read.Tip"] = "只能读取和分析：看崩溃报告、日志、mods 清单、查资源站与白名单站点。下载资源、写文件、改设置、跑脚本这类执行工具根本不会挂载。点一下切到「需要审批」。",
         ["Assistant.Chat.Permission.Ask"] = "需要审批",
-        ["Assistant.Chat.Permission.Ask.Tip"] = "只读操作（看崩溃报告、日志、mods 清单、查资源站与白名单站点）直接执行；会改动东西的操作会先弹窗问你。点一下切到「完全控制」。",
+        ["Assistant.Chat.Permission.Ask.Tip"] = "读取与查询直接执行；下载资源、写文件、改启动器设置、执行脚本这些操作每一下都会先弹窗问你。点一下切到「完全控制」。",
         ["Assistant.Chat.Permission.Full"] = "完全控制",
-        ["Assistant.Chat.Permission.Full.Tip"] = "AI 请求的操作不再逐个确认，直接执行。当前版本它仍然只有只读能力，等执行类工具上线后这一档才会真正放开。点一下切回「需要审批」。",
+        ["Assistant.Chat.Permission.Full.Tip"] = "执行类工具不再询问，直接动手。改过什么只记在每条回答左下角的痕迹里，不会再提醒。点一下切回「只读」。",
         ["Assistant.Approval.Title"] = "需要你的确认",
         ["Assistant.Approval.Content"] = "AI 请求执行：{0}\n参数：{1}\n当前权限档位是「需要审批」，允许吗？",
         ["Assistant.Title.Instruction"] = """
@@ -190,6 +201,10 @@ internal static class AssistantStrings
         ["Assistant.Tool.list_instance_files"] = "Browsing the instance folder",
         ["Assistant.Tool.read_instance_file"] = "Reading an instance file",
         ["Assistant.Tool.read_site"] = "Reading a website",
+        ["Assistant.Tool.download_resource"] = "Downloading a resource",
+        ["Assistant.Tool.write_instance_file"] = "Writing an instance file",
+        ["Assistant.Tool.set_launcher_config"] = "Changing a launcher setting",
+        ["Assistant.Tool.run_python"] = "Running a Python script",
         ["Assistant.Chat.System"] = """
             You are the Minecraft assistant built into PCL CE. Answer in the interface language.
 
@@ -208,13 +223,20 @@ internal static class AssistantStrings
             "when something really is only on CurseForge, say plainly that this launcher cannot query CurseForge " +
             "instead of inventing download counts, versions or dates.",
         ["Assistant.Chat.Tools.Rejected"] = "This model does not accept tool calls, so the answer came from plain chat.",
+        ["Assistant.Chat.System.Actions"] = """
+            [This permission tier allows acting] Besides reading, you can really run: download_resource (hand the file to the launcher's own downloader, into the right folder of the current instance), write_instance_file (write a text file inside the instance; the previous version is backed up to .pclce-assistant-backup), set_launcher_config (change one whitelisted launcher setting), run_python (run Python in the current instance folder).
+
+            [Rules for acting] Give the diagnosis and the full plan first, then explicitly ask "want me to apply this?" - only call these tools after the player agrees, never decide for them. If a tool fails or is refused, say so plainly; never pretend something was already changed. After a change, state what was touched, what it is now, where the old value or backup lives, and how to undo it. A download call only means it started - do not claim it finished.
+            """,
         ["Assistant.Chat.DeleteConfirm.Title"] = "Delete conversation",
         ["Assistant.Chat.DeleteConfirm"] = "Delete “{0}”? This cannot be undone.",
         ["Assistant.Chat.LoadEarlier"] = "Show {0} earlier messages",
+        ["Assistant.Chat.Permission.Read"] = "Read only",
+        ["Assistant.Chat.Permission.Read.Tip"] = "Analysis only: crash reports, logs, the mods list, resource sites and whitelisted pages. Action tools (downloads, writes, settings, scripts) are not attached at all. Click to switch to Ask first.",
         ["Assistant.Chat.Permission.Ask"] = "Ask first",
-        ["Assistant.Chat.Permission.Ask.Tip"] = "Read-only steps (crash reports, logs, the mods list, resource sites and whitelisted pages) run straight away; anything that would change something pops a confirmation first. Click to switch to Full control.",
+        ["Assistant.Chat.Permission.Ask.Tip"] = "Reading and searching run straight away; downloading, writing files, changing launcher settings and running scripts each ask you first. Click to switch to Full control.",
         ["Assistant.Chat.Permission.Full"] = "Full control",
-        ["Assistant.Chat.Permission.Full.Tip"] = "The assistant acts without asking each time. It still only has read-only tools in this build, so this tier starts to matter once the action tools land. Click to go back to Ask first.",
+        ["Assistant.Chat.Permission.Full.Tip"] = "Action tools run without asking. What changed is only recorded in the per-answer trace at the bottom-left of the card, with no further prompts. Click to go back to Read only.",
         ["Assistant.Approval.Title"] = "Approval needed",
         ["Assistant.Approval.Content"] = "The assistant wants to run: {0}\nArguments: {1}\nYour permission tier is \"Ask first\" - allow it?",
         ["Assistant.Title.Instruction"] = """

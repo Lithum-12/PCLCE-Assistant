@@ -30,7 +30,7 @@ internal sealed class AssistantToolset
     private const int DefaultResults = 6;
     private const int MaxResults = 15;
 
-    private const string NoInstance =
+    internal const string NoInstance =
         "当前没有选中任何游戏实例。请在启动器的「实例」页选中一个实例后再问，或者先让用户选择实例。";
 
     // 上游只在 CI 构建期注入这枚 key，正式构建之外它永远是空串——缺它时要把"为什么、这次怎么办"讲清楚，
@@ -86,11 +86,20 @@ internal sealed class AssistantToolset
     {
         var args = ReadArguments(call.ArgumentsJson);
         var definition = Definitions.FirstOrDefault(d => d.Name == call.Name);
-        if (definition is not null && AssistantPermissions.NeedsApproval(PermissionMode, definition.RequiresApproval) &&
+        var isAction = definition?.Kind == AssistantToolKind.Action;
+        if (definition is not null && isAction && PermissionMode == AssistantPermissionMode.Read)
+        {
+            // 只读档这些工具根本没挂载，走到这里说明模型在凭空调用
+            AddTrace($"拒绝 {definition.Name}（只读档）");
+            return new AssistantToolOutcome(Refused(definition.Name, "当前权限档位是「只读」，助手不具备执行能力。"),
+                "只读档", false);
+        }
+
+        if (definition is not null && AssistantPermissions.NeedsApproval(PermissionMode, isAction) &&
             !Approve(definition, args))
         {
             AddTrace($"拒绝 {definition.Name}");
-            return new AssistantToolOutcome(Refused(definition.Name), "已拒绝", false);
+            return new AssistantToolOutcome(Refused(definition.Name, "用户在权限确认里拒绝了这次操作。"), "已拒绝", false);
         }
 
         var (content, note, failed) = call.Name switch
@@ -103,6 +112,10 @@ internal sealed class AssistantToolset
             "list_instance_files" => ListInstanceFiles(Args(args, "path")),
             "read_instance_file" => ReadInstanceFile(Args(args, "path")),
             "read_site" => await ReadSiteAsync(Args(args, "site"), Args(args, "path"), token),
+            "download_resource" => await AssistantActions.DownloadResource(_instance, args, token),
+            "write_instance_file" => AssistantActions.WriteInstanceFile(_instance, args),
+            "set_launcher_config" => AssistantActions.SetLauncherConfig(args),
+            "run_python" => await AssistantActions.RunPython(_instance, args, token),
             _ => ($"没有名为 {call.Name} 的工具。", "", true)
         };
 
@@ -122,6 +135,10 @@ internal sealed class AssistantToolset
         "list_instance_files" => ("folder-open", Lang.Text("Assistant.Tool.list_instance_files")),
         "read_instance_file" => ("file-input", Lang.Text("Assistant.Tool.read_instance_file")),
         "read_site" => ("globe", Lang.Text("Assistant.Tool.read_site")),
+        "download_resource" => ("download", Lang.Text("Assistant.Tool.download_resource")),
+        "write_instance_file" => ("save", Lang.Text("Assistant.Tool.write_instance_file")),
+        "set_launcher_config" => ("settings", Lang.Text("Assistant.Tool.set_launcher_config")),
+        "run_python" => ("flask-conical", Lang.Text("Assistant.Tool.run_python")),
         _ => ("settings", Lang.Text("Assistant.Tool.unknown"))
     };
 
@@ -176,6 +193,38 @@ internal sealed class AssistantToolset
                     new AssistantToolParam("path", "站内相对路径，可带查询串，例如 /v2/versions/loader/1.20.1、/s?key=钠")
                 ]));
 
+        // 执行类工具：只读档不挂载，需要审批档逐个弹确认
+        if (AssistantPermissions.AllowsActions(PermissionMode))
+        {
+            defs.Add(new("download_resource",
+                "用启动器自己的下载器，把一个资源下载到当前实例对应的目录里（模组→mods、材质→resourcepacks、光影→shaderpacks、世界→saves）。" +
+                "任务会真的开始跑，进度在启动器的下载面板里；调用之后不要声称已经下载完成。整合包与数据包不支持。",
+                [
+                    new AssistantToolParam("project", "Modrinth 的 slug（如 sodium）或 CurseForge 的数字 id"),
+                    new AssistantToolParam("file", "可选，指定文件 id；不填就自动挑一个跟当前实例版本、加载器匹配的文件")
+                ], AssistantToolKind.Action));
+            defs.Add(new("write_instance_file",
+                "把一段文本写进当前实例目录里的一个文件（覆盖前会自动备份到实例下的 " +
+                AssistantLocalWriter.BackupFolder + " 目录）。只允许文本类扩展名，启动器自己的 PCL 目录与密钥库拒绝写入。",
+                [
+                    new AssistantToolParam("path", "相对实例根目录的路径，例如 options.txt、config/sodium-options.json"),
+                    new AssistantToolParam("content", "要写入的完整文件内容")
+                ], AssistantToolKind.Action));
+            defs.Add(new("set_launcher_config",
+                "修改启动器的一项设置。可改的键是白名单，改动前会先读出上一个值以便回滚。",
+                [
+                    new AssistantToolParam("key", "配置键名，只能是：" + string.Join("、", AssistantConfigKeys.Allowed)),
+                    new AssistantToolParam("value", "新值，按该键的类型给（布尔给 true/false，数字给数字）")
+                ], AssistantToolKind.Action));
+            defs.Add(new("run_python",
+                "在当前实例目录下执行一段 Python 脚本，返回 stdout/stderr 与退出码。" +
+                "用来做批量分析或按方案改配置；解释器按 py → python → python3 顺序找。",
+                [
+                    new AssistantToolParam("script", "要执行的完整 Python 源码"),
+                    new AssistantToolParam("timeout_seconds", "可选，超时秒数，5 到 300，默认 60")
+                ], AssistantToolKind.Action));
+        }
+
         return defs;
     }
 
@@ -199,9 +248,9 @@ internal sealed class AssistantToolset
         return result == 1;
     }
 
-    private static string Refused(string toolName) =>
-        $"用户在权限确认里拒绝了 {toolName}。不要重试同一个操作；基于已经拿到的信息继续回答，" +
-        "或者告诉用户这一步被跳过了、他可以在聊天底部的权限档位里改成「完全控制」。";
+    private static string Refused(string toolName, string reason) =>
+        $"{reason} 不要重试同一个操作；基于已经拿到的信息继续回答，" +
+        "或者把方案讲清楚、让用户自己在启动器里动手。";
 
     private (string Content, string Note, bool Failed) ReadCrashReports(int maxFiles)
     {

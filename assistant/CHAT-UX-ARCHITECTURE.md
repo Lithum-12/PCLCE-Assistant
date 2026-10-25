@@ -42,6 +42,16 @@
 
 删除正在生成的会话会先取消该会话的请求；请求结束后不能把已删除会话重新加入历史。
 
+## 权限与执行
+
+三档权限存在 `Config.Assistant.PermissionMode`：`read`（只读）/ `ask`（需要审批，默认）/ `full`（完全控制），聊天底部模型框右边那个按钮就是它，点一下循环一档。工具分两类：`AssistantToolKind.Read` 与 `Action`。
+
+- 只读档：Action 工具**根本不挂载**，主提示词里"只能读取和分析"那句此时是准确的。
+- 需要审批：Action 工具挂上，每执行一个都先弹上游 `ModMain.MyMsgBox`，把动作名和参数摊开给人看；拒绝就把"用户不同意，不要重试"作为工具结果回给模型。
+- 完全控制：不弹确认，改过什么只记在回答左下角的痕迹里。
+
+执行类动作的实现集中在 `AssistantActions`，`AssistantToolset` 只管挂载、审批与痕迹。写文件一律走 `AssistantLocalWriter`（文本扩展名白名单 + 覆盖前备份到实例下的 `.pclce-assistant-backup`），改设置一律走 `AssistantConfigKeys` 的白名单——白名单是具体键名而不是前缀，否则 `Assistant*` 会被一起放进来，等于让模型自己改自己的权限与脱敏开关。跑 Python 按 `py -3 → python → python3` 探测，脚本落在系统临时目录、工作目录是当前实例，管道强制 UTF-8（中文 Windows 上 Python 默认按 GBK 写管道）。
+
 ## 渲染窗口
 
 切会话是重建整个消息区：每条消息一个 `MyCard` + 一次 Markdig 解析。所以 `RenderCurrentSession` 一次只画最近 `RenderWindow`（24）条，顶部放一个"显示更早的 N 条消息"按钮，点一次往前再放 24 条并把原来最先看到的那条滚回视野；换会话时窗口回到尾部。入场动画同理只给最靠近输入框的 8 个控件做（复位仍然覆盖全部，否则上次动画做到一半的条目会永远停在半透明）。这条只影响画多少，不改发给模型的上下文——历史仍然全量发送。
