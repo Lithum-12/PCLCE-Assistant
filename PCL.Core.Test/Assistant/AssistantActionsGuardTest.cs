@@ -116,6 +116,21 @@ public class AssistantActionsGuardTest
     }
 
     [TestMethod]
+    public void DeletePath_AllowsAnyFileButNotDirectoriesOrSensitivePlaces()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "mods"));
+        File.WriteAllText(Path.Combine(_root, "mods", "sodium-neoforge.jar"), "junk");
+
+        Assert.IsNotNull(AssistantLocalWriter.ResolveDeletablePath(_root, "mods/sodium-neoforge.jar"),
+            "删装错的模组 jar 是主要用途，不该被扩展名白名单挡住");
+        Assert.IsNull(AssistantLocalWriter.ResolveDeletablePath(_root, "config"), "目录一律不给删");
+        Assert.IsNull(AssistantLocalWriter.ResolveDeletablePath(_root, "PCL/LatestLaunch.bat"));
+        Assert.IsNull(AssistantLocalWriter.ResolveDeletablePath(_root, "../outside.jar"));
+        Assert.IsNull(AssistantLocalWriter.ResolveDeletablePath(_root,
+            AssistantLocalWriter.BackupFolder + "/options.txt"), "备份目录里的东西不给删");
+    }
+
+    [TestMethod]
     public void PythonCandidates_PreferTheWindowsLauncher()
     {
         var windows = AssistantPython.Candidates(true).Select(c => c.File).ToList();

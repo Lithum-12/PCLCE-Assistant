@@ -91,7 +91,7 @@ internal sealed class AssistantToolset
         {
             // 只读档这些工具根本没挂载，走到这里说明模型在凭空调用
             AddTrace($"拒绝 {definition.Name}（只读档）");
-            return new AssistantToolOutcome(Refused(definition.Name, "当前权限档位是「只读」，助手不具备执行能力。"),
+            return new AssistantToolOutcome(Refused(definition.Name, "当前是只读模式，我无法操作文件或执行这个动作。"),
                 "只读档", false);
         }
 
@@ -114,6 +114,7 @@ internal sealed class AssistantToolset
             "read_site" => await ReadSiteAsync(Args(args, "site"), Args(args, "path"), token),
             "download_resource" => await AssistantActions.DownloadResource(_instance, args, token),
             "write_instance_file" => AssistantActions.WriteInstanceFile(_instance, args),
+            "delete_instance_file" => AssistantActions.DeleteInstanceFile(_instance, args),
             "set_launcher_config" => AssistantActions.SetLauncherConfig(args),
             "run_python" => await AssistantActions.RunPython(_instance, args, token),
             _ => ($"没有名为 {call.Name} 的工具。", "", true)
@@ -137,6 +138,7 @@ internal sealed class AssistantToolset
         "read_site" => ("globe", Lang.Text("Assistant.Tool.read_site")),
         "download_resource" => ("download", Lang.Text("Assistant.Tool.download_resource")),
         "write_instance_file" => ("save", Lang.Text("Assistant.Tool.write_instance_file")),
+        "delete_instance_file" => ("trash-2", Lang.Text("Assistant.Tool.delete_instance_file")),
         "set_launcher_config" => ("settings", Lang.Text("Assistant.Tool.set_launcher_config")),
         "run_python" => ("flask-conical", Lang.Text("Assistant.Tool.run_python")),
         _ => ("settings", Lang.Text("Assistant.Tool.unknown"))
@@ -213,6 +215,11 @@ internal sealed class AssistantToolset
                     new AssistantToolParam("path", "相对实例根目录的路径，例如 options.txt、config/sodium-options.json"),
                     new AssistantToolParam("content", "要写入的完整文件内容")
                 ], AssistantToolKind.Action));
+            defs.Add(new("delete_instance_file",
+                "把当前实例目录里的一个文件放进回收站（不是永久删除，玩家还能还原）。" +
+                "用来移除冲突或装错的模组、材质等。只能删单个文件，删不了目录，也删不到实例外面。",
+                [new AssistantToolParam("path", "相对实例根目录的文件路径，例如 mods/sodium-neoforge-0.8.13+mc1.21.1.jar")],
+                AssistantToolKind.Action));
             defs.Add(new("set_launcher_config",
                 "修改启动器的一项设置。可改的键是白名单，改动前会先读出上一个值以便回滚。",
                 [

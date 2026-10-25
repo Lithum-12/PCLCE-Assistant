@@ -31,6 +31,19 @@ public static class AssistantLocalWriter
     public static bool IsWritableTextFile(string path) =>
         TextExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 删除用的路径守卫：跟写一样不许越界、不许碰启动器自己的目录与密钥库，
+    /// 但不限扩展名（删模组 jar 正是主要用途）；只允许删文件，目录一律拒绝。
+    /// </summary>
+    public static string? ResolveDeletablePath(string root, string? relative)
+    {
+        var path = AssistantLocalReader.ResolveInstancePath(root, relative);
+        if (path is null) return null;
+        if (IsInsideBackupFolder(root, path)) return null;
+        if (path.EndsWith(Path.DirectorySeparatorChar.ToString()) || Directory.Exists(path)) return null;
+        return path;
+    }
+
     /// <summary>沿用读的那道守卫（越界、盘符、PCL 子目录、密钥库一律拒绝），再叠一层扩展名白名单。</summary>
     public static string? ResolveWritablePath(string root, string? relative)
     {

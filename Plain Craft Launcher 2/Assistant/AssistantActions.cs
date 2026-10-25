@@ -138,6 +138,40 @@ internal static class AssistantActions
         return (builder.ToString(), killed ? "超时终止" : $"退出码 {(process.HasExited ? process.ExitCode : -1)}", killed);
     }
 
+    public static (string Content, string Note, bool Failed) DeleteInstanceFile(McInstance? instance,
+        Dictionary<string, string> args)
+    {
+        if (instance is null) return (AssistantToolset.NoInstance, "", false);
+
+        var relative = args.GetValueOrDefault("path", "").Trim();
+        if (relative.Length == 0) return ("缺少 path 参数。", "", true);
+
+        var root = instance.PathIndie;
+        var path = AssistantLocalWriter.ResolveDeletablePath(root, relative);
+        if (path is null)
+            return ($"{relative} 不能删：只能删实例目录里的单个文件，" +
+                    "启动器自己的 PCL 目录、密钥库、备份目录与整个文件夹都在拒绝之列。", "拒绝", true);
+        if (!File.Exists(path)) return ($"{relative} 不存在，可能已经被删掉了。", "无此文件", false);
+
+        var size = new FileInfo(path).Length;
+        try
+        {
+            // 走回收站而不是 File.Delete：这是玩家的东西，删模组删错了还能自己捞回来。
+            // 用 OnlyErrorDialogs 而不是上游部分调用点的 AllDialogs——确认框我们已经弹过了，不该再让系统弹一层。
+            Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(path,
+                Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
+                Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+        }
+        catch (Exception e)
+        {
+            ModBase.Log(e, "[Assistant] 删除文件失败");
+            return ($"删除 {relative} 失败：{e.Message}", "失败", true);
+        }
+
+        return ($"已把 {relative}（{size:N0} 字节）放进回收站，需要的话玩家还能从回收站还原。",
+            size > 1024 * 1024 ? $"{size / 1024 / 1024:N1} MB" : $"{size / 1024:N0} KB", false);
+    }
+
     public static (string Content, string Note, bool Failed) SetLauncherConfig(Dictionary<string, string> args)
     {
         var key = args.GetValueOrDefault("key", "").Trim();

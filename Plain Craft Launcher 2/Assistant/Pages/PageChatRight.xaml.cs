@@ -393,9 +393,13 @@ public partial class PageChatRight
         // CurseForge 的工具是按密钥挂载的，没挂载就得告诉模型别推荐那条路
         if (string.IsNullOrWhiteSpace(Secrets.CurseForgeAPIKey))
             prompt += "\n" + Lang.Text("Assistant.Chat.System.NoCurseForge");
-        // 只读档不提执行能力：主提示词里"只能读取和分析"那句此时是准确的
-        if (AssistantPermissions.AllowsActions(AssistantPermissions.Parse(Config.Assistant.PermissionMode)))
-            prompt += "\n" + Lang.Text("Assistant.Chat.System.Actions");
+        // 让模型知道自己现在处在哪一档：只读时该说"只读模式我无法操作文件"，而不是含糊的"我没这个能力"
+        prompt += "\n" + Lang.Text(AssistantPermissions.Parse(Config.Assistant.PermissionMode) switch
+        {
+            AssistantPermissionMode.Read => "Assistant.Chat.System.Tier.Read",
+            AssistantPermissionMode.Full => "Assistant.Chat.System.Tier.Full",
+            _ => "Assistant.Chat.System.Tier.Ask"
+        });
         var instance = ModInstanceList.McMcInstanceSelected?.Name;
         return string.IsNullOrWhiteSpace(instance)
             ? prompt
