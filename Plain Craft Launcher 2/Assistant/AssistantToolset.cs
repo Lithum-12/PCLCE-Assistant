@@ -198,10 +198,13 @@ internal sealed class AssistantToolset
         {
             defs.Add(new("download_resource",
                 "用启动器自己的下载器，把一个资源下载到当前实例对应的目录里（模组→mods、材质→resourcepacks、光影→shaderpacks、世界→saves）。" +
-                "任务会真的开始跑，进度在启动器的下载面板里；调用之后不要声称已经下载完成。整合包与数据包不支持。",
+                "任务会真的开始跑，进度在启动器的下载面板里；调用之后不要声称已经下载完成。整合包与数据包不支持。" +
+                "默认按当前实例的加载器与游戏版本挑文件；玩家指定了版本或加载器就传 version / loader，不要靠猜。",
                 [
                     new AssistantToolParam("project", "Modrinth 的 slug（如 sodium）或 CurseForge 的数字 id"),
-                    new AssistantToolParam("file", "可选，指定文件 id；不填就自动挑一个跟当前实例版本、加载器匹配的文件")
+                    new AssistantToolParam("version", "可选，Minecraft 版本号，例如 1.21.1；不填就用当前实例的版本"),
+                    new AssistantToolParam("loader", "可选，fabric / neoforge / forge / quilt / liteloader；不填就用当前实例装的加载器"),
+                    new AssistantToolParam("file", "可选，指定文件 id；填了就跳过挑选")
                 ], AssistantToolKind.Action));
             defs.Add(new("write_instance_file",
                 "把一段文本写进当前实例目录里的一个文件（覆盖前会自动备份到实例下的 " +

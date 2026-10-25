@@ -210,13 +210,28 @@ internal static class AssistantActions
 
         if (files.Count == 0) return ($"{project.RawName} 没有可下载的文件。", "无文件", true);
 
-        var wanted = args.GetValueOrDefault("file", "").Trim();
-        ModComp.CompFile? file = null;
-        if (wanted.Length > 0) file = files.Find(f => f.Id == wanted);
-        file ??= files.Find(f => ModComp.IsInstanceSuitableForFile(instance, f, []));
+        // 玩家或模型指定了加载器就用指定的，没指定就用实例自己装的那些。
+        // 传空列表给上游的判定等于"不筛加载器"——上次就是因此把 NeoForge 版下载进了 Fabric 实例。
+        var wantedLoader = AssistantLoaders.Normalize(args.GetValueOrDefault("loader", ""));
+        var loaders = wantedLoader is null ? LoadersOfInstance(instance) : ToLoaderTypes(wantedLoader);
+        if (wantedLoader is null && loaders.Count == 0)
+            return ($"实例「{instance.Name}」没有装任何模组加载器，不知道该下哪种版本。" +
+                    "先问用户要用 Fabric / NeoForge / Forge / Quilt，再带上 loader 参数重新调用。", "无加载器", true);
+
+        var wantedVersion = args.GetValueOrDefault("version", "").Trim();
+        if (wantedVersion.Length == 0) wantedVersion = instance.Info.VanillaName ?? "";
+
+        var wantedFileId = args.GetValueOrDefault("file", "").Trim();
+        var file = wantedFileId.Length > 0 ? files.Find(f => f.Id == wantedFileId) : null;
         if (file is null)
-            return ($"{project.RawName} 没有跟实例「{instance.Name}」匹配的文件。" +
-                    "先确认游戏版本与加载器，或者让用户自己在下拉里挑。", "版本不匹配", true);
+            file = files.Where(f => Fits(f, wantedVersion, loaders))
+                .OrderByDescending(f => f.Status == ModComp.CompFileStatus.Release)
+                .ThenByDescending(f => f.ReleaseDate)
+                .FirstOrDefault();
+        if (file is null)
+            return ($"{project.RawName} 里没有同时满足「{wantedVersion} + {DescribeLoaders(loaders)}」的文件。" +
+                    $"可选的版本有：{string.Join("、", files.SelectMany(f => f.GameVersions).Distinct().Take(12))}。" +
+                    "把这件事如实告诉用户，让他换个版本号或加载器，不要硬下不匹配的文件。", "无匹配文件", true);
 
         var target = Path.Combine(instance.PathIndie, SubFolderFor(file.Type), ModComp.CompFileNameGet(project, file));
         try
@@ -229,10 +244,51 @@ internal static class AssistantActions
             return ($"启动下载失败：{e.Message}", "失败", true);
         }
 
-        return ($"已让启动器开始下载 {project.RawName} 的 {file.FileName} 到 {target}。" +
+        return ($"已让启动器开始下载 {project.RawName} 的 {file.FileName}" +
+                $"（{string.Join("/", file.GameVersions.Take(3))} · {DescribeLoaders(file.ModLoaders)}）到 {target}。" +
                 "进度在启动器右下角的下载面板里，任务还在跑；不要假设它已经下载完成。",
             Path.GetFileName(target), false);
     }
+
+    /// <summary>实例装了哪些加载器。原版实例返回空列表，交给调用方去问玩家。</summary>
+    private static List<ModComp.CompLoaderType> LoadersOfInstance(McInstance instance)
+    {
+        // 跟上游 IsInstanceSuitableForFile 一样：没加载过的实例先 Load()，否则 Has* 全是 false
+        if (!instance.IsLoaded) instance.Load();
+        var info = instance.Info;
+        List<ModComp.CompLoaderType> result = [];
+        if (info.HasFabric) result.Add(ModComp.CompLoaderType.Fabric);
+        if (info.HasLegacyFabric) result.Add(ModComp.CompLoaderType.Fabric);
+        if (info.HasQuilt) result.Add(ModComp.CompLoaderType.Quilt);
+        if (info.HasNeoForge) result.Add(ModComp.CompLoaderType.NeoForge);
+        if (info.HasForge) result.Add(ModComp.CompLoaderType.Forge);
+        if (info.HasLiteLoader) result.Add(ModComp.CompLoaderType.LiteLoader);
+        return result.Distinct().ToList();
+    }
+
+    private static List<ModComp.CompLoaderType> ToLoaderTypes(string normalized) => normalized switch
+    {
+        "fabric" or "legacyfabric" => [ModComp.CompLoaderType.Fabric],
+        "neoforge" => [ModComp.CompLoaderType.NeoForge],
+        "forge" => [ModComp.CompLoaderType.Forge],
+        "quilt" => [ModComp.CompLoaderType.Quilt],
+        "liteloader" => [ModComp.CompLoaderType.LiteLoader],
+        _ => []
+    };
+
+    /// <summary>版本要落在文件声明的版本列表里；加载器要有交集。文件本身没声明加载器（材质、光影、世界）时不按加载器卡。</summary>
+    private static bool Fits(ModComp.CompFile file, string version, List<ModComp.CompLoaderType> loaders)
+    {
+        if (version.Length > 0 && file.GameVersions.Count > 0 &&
+            !file.GameVersions.Any(v => v.Contains(version, StringComparison.OrdinalIgnoreCase)))
+            return false;
+        if (loaders.Count > 0 && file.ModLoaders.Count > 0 && !file.ModLoaders.Intersect(loaders).Any())
+            return false;
+        return true;
+    }
+
+    private static string DescribeLoaders(List<ModComp.CompLoaderType> loaders) =>
+        loaders.Count == 0 ? "不限加载器" : string.Join("/", loaders);
 
     private static void StartDownload(ModComp.CompProject project, ModComp.CompFile file, string target)
     {

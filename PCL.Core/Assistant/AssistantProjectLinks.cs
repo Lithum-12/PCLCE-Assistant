@@ -9,7 +9,9 @@ using PCL.Core.App;
 
 namespace PCL.Core.Assistant;
 
-public sealed record AssistantProjectLink(string Url, string Slug, bool Modrinth);
+/// <param name="Loader">链接上带的加载器筛选（fabric / neoforge / forge / quilt / liteloader），没有则为空。</param>
+/// <param name="Version">链接上带的 Minecraft 版本筛选，没有则为空。</param>
+public sealed record AssistantProjectLink(string Url, string Slug, bool Modrinth, string Loader = "", string Version = "");
 
 public sealed record AssistantProjectInfo(string Id, string Title, string Description, string IconUrl,
     string Source, string LoaderText, long Downloads, DateTime UpdatedAt);
@@ -31,7 +33,10 @@ public static class AssistantProjectLinks
     private const string CurseForgePattern =
         @"https?://(?:www\.)?curseforge\.com/minecraft/[a-z][a-z\-]*/[A-Za-z0-9\-_]+";
 
-    private static readonly Regex LinkRegex = new($"({ModrinthPattern}|{CurseForgePattern})",
+    // 允许模型在链接后面带上筛选条件：?mc=1.21.1&loader=fabric，玩家点开卡片就直接落在对应的版本与加载器上
+    private const string Query = @"(?:\?[A-Za-z0-9=&%_\-.]*)?";
+
+    private static readonly Regex LinkRegex = new($"({ModrinthPattern}|{CurseForgePattern}){Query}",
         RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
     private static readonly Dictionary<string, AssistantProjectInfo?> Cache = new(StringComparer.OrdinalIgnoreCase);
@@ -76,9 +81,30 @@ public static class AssistantProjectLinks
         var match = LinkRegex.Match(url);
         if (!match.Success) return null;
         var clean = match.Value.TrimEnd('.', ',', ';', '。', '，', '、', ')');
-        var slug = clean[(clean.LastIndexOf('/') + 1)..];
+        var separator = clean.IndexOf('?');
+        var path = separator < 0 ? clean : clean[..separator];
+        var query = separator < 0 ? "" : clean[(separator + 1)..];
+        var slug = path[(path.LastIndexOf('/') + 1)..];
         if (slug.Length == 0) return null;
-        return new AssistantProjectLink(clean, slug, clean.Contains("modrinth.com", StringComparison.OrdinalIgnoreCase));
+        return new AssistantProjectLink(clean, slug, path.Contains("modrinth.com", StringComparison.OrdinalIgnoreCase),
+            QueryValue(query, "loader") ?? "", QueryValue(query, "mc") ?? "");
+    }
+
+    /// <summary>模型会写 mc / version / gameversion 与 loader / modloader，都认。</summary>
+    private static string? QueryValue(string query, string name)
+    {
+        foreach (var pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var kv = pair.Split('=', 2);
+            if (kv.Length != 2) continue;
+            var key = kv[0].ToLowerInvariant();
+            var matches = name == "mc"
+                ? key is "mc" or "version" or "gameversion" or "game_version"
+                : key is "loader" or "modloader" or "mod_loader";
+            if (matches && kv[1].Length > 0) return Uri.UnescapeDataString(kv[1]);
+        }
+
+        return null;
     }
 
     public static async Task<AssistantProjectInfo?> FetchAsync(AssistantProjectLink link)

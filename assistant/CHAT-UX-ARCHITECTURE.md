@@ -52,6 +52,12 @@
 
 执行类动作的实现集中在 `AssistantActions`，`AssistantToolset` 只管挂载、审批与痕迹。写文件一律走 `AssistantLocalWriter`（文本扩展名白名单 + 覆盖前备份到实例下的 `.pclce-assistant-backup`），改设置一律走 `AssistantConfigKeys` 的白名单——白名单是具体键名而不是前缀，否则 `Assistant*` 会被一起放进来，等于让模型自己改自己的权限与脱敏开关。跑 Python 按 `py -3 → python → python3` 探测，脚本落在系统临时目录、工作目录是当前实例，管道强制 UTF-8（中文 Windows 上 Python 默认按 GBK 写管道）。
 
+## 版本与加载器
+
+`download_resource` 挑文件必须同时满足游戏版本与加载器：模型传了 `loader` / `version` 就用它，没传就用当前实例装的加载器和 `Info.VanillaName`。这里有个真实事故：上游 `IsInstanceSuitableForFile` 在 `allowedLoaders` 为空时**直接返回 true**（表示"不筛加载器"），所以早期实现传空列表时，Fabric 实例会拿到 NeoForge 版的 Sodium——Modrinth 上同一个游戏版本的两条记录是交替排的，第一条往往就是错的那个。现在实例一个加载器都没有时不再猜，直接让模型去问玩家。
+
+卡片链接支持 `?mc=1.21.1&loader=fabric`（`version` / `modloader` 也认）：`AssistantProjectLinks.Parse` 把它留在 `AssistantProjectLink` 上，点开详情页时作为 `TargetVersion` / `TargetLoader` 传给上游，玩家看到的就是筛好的那一版；链接没带参数就退回当前选中的实例。
+
 ## 渲染窗口
 
 切会话是重建整个消息区：每条消息一个 `MyCard` + 一次 Markdig 解析。所以 `RenderCurrentSession` 一次只画最近 `RenderWindow`（24）条，顶部放一个"显示更早的 N 条消息"按钮，点一次往前再放 24 条并把原来最先看到的那条滚回视野；换会话时窗口回到尾部。入场动画同理只给最靠近输入框的 8 个控件做（复位仍然覆盖全部，否则上次动画做到一半的条目会永远停在半透明）。这条只影响画多少，不改发给模型的上下文——历史仍然全量发送。

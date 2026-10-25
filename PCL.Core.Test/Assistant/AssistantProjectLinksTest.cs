@@ -85,6 +85,43 @@ public class AssistantProjectLinksTest
         Assert.IsNull(AssistantProjectLinks.Parse(""));
     }
 
+    [TestMethod]
+    public void Parse_KeepsLoaderAndVersionFilters()
+    {
+        var link = AssistantProjectLinks.Parse("看 https://modrinth.com/mod/sodium?mc=1.21.1&loader=fabric 吧");
+
+        Assert.IsNotNull(link);
+        Assert.AreEqual("sodium", link!.Slug);
+        Assert.AreEqual("fabric", link.Loader);
+        Assert.AreEqual("1.21.1", link.Version);
+        Assert.AreEqual("https://modrinth.com/mod/sodium?mc=1.21.1&loader=fabric", link.Url);
+    }
+
+    [TestMethod]
+    public void Parse_AcceptsAliasesAndBareLinks()
+    {
+        var alias = AssistantProjectLinks.Parse("https://modrinth.com/mod/iris?version=1.20.1&modloader=NeoForge");
+        Assert.AreEqual("1.20.1", alias!.Version);
+        Assert.AreEqual("NeoForge", alias.Loader);
+
+        var plain = AssistantProjectLinks.Parse("https://modrinth.com/mod/sodium");
+        Assert.AreEqual("", plain!.Loader);
+        Assert.AreEqual("", plain.Version);
+
+        var wrapped = AssistantProjectLinks.Parse("[Sodium](https://modrinth.com/mod/sodium?mc=1.21.1)");
+        Assert.AreEqual("1.21.1", wrapped!.Version);
+    }
+
+    [TestMethod]
+    public void Split_CardSegmentKeepsTheQueryString()
+    {
+        var parts = AssistantProjectLinks.Split("用 https://modrinth.com/mod/sodium?mc=1.21.1&loader=fabric 就行");
+
+        Assert.AreEqual(1, parts.Count(p => p.IsCard));
+        Assert.AreEqual("https://modrinth.com/mod/sodium?mc=1.21.1&loader=fabric", parts.First(p => p.IsCard).Text);
+        Assert.AreEqual("就行", parts.Last(p => !p.IsCard).Text);
+    }
+
     // 字段名照上游 ModComp._BuildFromCurseForge 读的 FuzzyMod 形状手写的一份，
     // 他贴上真 key 之后应该换成从 api.curseforge.com 抓下来的原始响应
     [TestMethod]

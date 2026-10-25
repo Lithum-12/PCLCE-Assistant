@@ -230,13 +230,27 @@ internal static class AssistantProjectCards
             return;
         }
 
+        // 链接上带了 ?mc= / ?loader= 就按它筛，没带就用当前选中的实例——玩家点开卡片看到的就是能用的那个版本
+        var instance = ModInstanceList.McMcInstanceSelected;
+        var version = link.Version.Length > 0 ? link.Version : instance?.Info.VanillaName ?? "";
+        var loader = AssistantLoaders.Normalize(link.Loader) is { } name ? ToLoaderType(name) : ModComp.CompLoaderType.Any;
         ModMain.frmMain.PageChange(new FormMain.PageStackData
         {
             page = FormMain.PageType.CompDetail,
-            additional = (project, new List<string>(), string.Empty, ModComp.CompLoaderType.Any,
+            additional = (project, new List<string>(), version, loader,
                 ModComp.CompType.Any, string.Empty)
         });
     }
+
+    private static ModComp.CompLoaderType ToLoaderType(string normalized) => normalized switch
+    {
+        "fabric" or "legacyfabric" => ModComp.CompLoaderType.Fabric,
+        "neoforge" => ModComp.CompLoaderType.NeoForge,
+        "forge" => ModComp.CompLoaderType.Forge,
+        "quilt" => ModComp.CompLoaderType.Quilt,
+        "liteloader" => ModComp.CompLoaderType.LiteLoader,
+        _ => ModComp.CompLoaderType.Any
+    };
 
     /// <summary>悬停预取：结果不要紧，详情页读的是上游那张 compProjectCache。</summary>
     public static async Task WarmAsync(AssistantProjectLink link)

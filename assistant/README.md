@@ -18,6 +18,7 @@
 | `PCL.Core/Assistant/AssistantLocalReader.cs` | 实例文件提取：崩溃报告取头尾、日志只取尾部、mods 清单 |
 | `PCL.Core/Assistant/AssistantRedactor.cs` | 外发前脱敏：用户名与完整路径、IP、UUID、坐标、种子、账号名 |
 | `PCL.Core/Assistant/AssistantPermissions.cs` | 三档权限（只读 / 需要审批 / 完全控制）的取值与判定，Action 工具按档位决定挂不挂、要不要弹确认 |
+| `PCL.Core/Assistant/AssistantLoaders.cs` | 加载器名归一化（NeoForge / fabricmc / Minecraft Forge → 标准名），供下载筛选与卡片跳转共用 |
 | `PCL.Core/Assistant/AssistantLocalWriter.cs` | 往实例里写文件的唯一入口：文本扩展名白名单 + 覆盖前自动备份 |
 | `PCL.Core/Assistant/AssistantConfigKeys.cs` | AI 可改的启动器设置白名单，以及按声明类型转值 |
 | `PCL.Core/Assistant/AssistantPython.cs` | Python 解释器的候选顺序与参数拼装（纯逻辑，可单测） |
