@@ -12,6 +12,8 @@ public sealed class AssistantSession
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "";
+    // 标题是不是 AI 起的：起过一次就不再花第二次钱，旧文件里没这个字段时按 false 处理
+    public bool TitleIsAi { get; set; }
     public long CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     // Zero means this is a legacy session which predates UpdatedAt; order it by CreatedAt.
     public long UpdatedAt { get; set; }
@@ -209,6 +211,19 @@ public static class AssistantSessionStore
         if (deletedCurrent) Current = null;
         Save();
         if (deletedCurrent) CurrentChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 换标题不 Touch：只是给列表换个说法，不该顺手把这条会话顶到最前面。
+    /// 会话可能在这期间已被删除，所以先确认它还在。
+    /// </summary>
+    public static void RenameSession(AssistantSession session, string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) return;
+        if (!Sessions.Contains(session)) return;
+        session.Title = title;
+        session.TitleIsAi = true;
+        Save();
     }
 
     public static void Save()

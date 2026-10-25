@@ -55,7 +55,20 @@ public partial class PageChatLeft
     private void HistoryDelete(object senderRaw, EventArgs e)
     {
         if (((MyIconButton)senderRaw).Tag is not AssistantSession session) return;
+        // 删了就找不回来，先确认一眼删的是哪条。连点也不会叠一屏框：上游 MyMsgBox 自带队列
+        if (1 != ModMain.MyMsgBox(Lang.Text("Assistant.Chat.DeleteConfirm", Describe(session)),
+                Lang.Text("Assistant.Chat.DeleteConfirm.Title"),
+                Lang.Text("Common.Action.Delete"), Lang.Text("Common.Action.Cancel"), isWarn: true)) return;
         ((PageChatRight)PageGet(FormMain.PageSubType.AssistantChat)).DeleteSession(session);
+    }
+
+    /// <summary>确认框里说清楚删的是哪一条：历史条目看标题，草稿看输入框里那半句话。</summary>
+    private static string Describe(AssistantSession session)
+    {
+        var text = (AssistantSessionStore.IsPersisted(session) ? session.Title : session.DraftText)
+            .Trim().Replace('\r', ' ').Replace('\n', ' ');
+        if (text.Length > 40) text = text[..40] + "…";
+        return string.IsNullOrWhiteSpace(text) ? Lang.Text("Assistant.Left.Untitled") : text;
     }
 
     public object PageGet(FormMain.PageSubType? id = null)

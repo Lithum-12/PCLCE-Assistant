@@ -25,6 +25,7 @@
 - `CurrentChanged` 只表示当前会话切换；聊天页面收到事件后重绘当前会话。
 - `SessionsChanged` 表示历史数据更改；左侧历史列表据此刷新。
 - `Sessions` 只包含至少有一条消息的持久化会话；`Drafts` 保存暂未发送的草稿，二者在左侧分区显示且只有 `Sessions` 写入历史 JSON。
+- `Title` 先由首条用户消息截断得到；一轮回答正常结束后 `AssistantTitles` 会再问一次模型要短标题，成功才写回并置 `TitleIsAi`，失败就保留截断原文。`TitleIsAi` 保证一次对话只花这一回钱，改名也不 bump `UpdatedAt`（否则列表顺序会跳）。
 - `UpdatedAt` 用于最近活跃排序；`UpdatedAt == 0` 的旧记录回退到 `CreatedAt`。
 
 `PageChatRight` 是唯一聊天画面。`AssistantHome` 旧枚举值仍为兼容而存在，但被映射到同一个 `PageChatRight`，不得再创建第二个聊天页面或第二个输入框。

@@ -109,6 +109,13 @@ internal static class AssistantStrings
             "请一律优先给 Modrinth、MC 百科、ModpackIndex 这些不需要代理的来源；确实只有 CurseForge 才有某项资源时，" +
             "直说这台机器上的启动器查不到 CurseForge，不要编造下载量、版本或更新时间。",
         ["Assistant.Chat.Tools.Rejected"] = "当前模型不接受工具调用，本次按普通对话回答。",
+        ["Assistant.Chat.DeleteConfirm.Title"] = "删除对话",
+        ["Assistant.Chat.DeleteConfirm"] = "确定要删除「{0}」吗？删除后无法恢复。",
+        ["Assistant.Title.Instruction"] = """
+            把下面这条玩家请求改写成不超过 12 个词的短标题，用来显示在会话列表里。
+            与请求保持同一种语言（中文请求就给中文标题）；把专有名词写成常见写法与大小写（例如 neoforge → NeoForge、我的世界 → Minecraft、钠 → Sodium）；
+            不要引号、书名号或句号，不要加"标题："前缀，不要解释，只输出标题本身。
+            """,
         ["Setup.Left.Item.Assistant"] = "AI 助手",
         ["Setup.Assistant.Card.Main"] = "AI 助手",
         ["Setup.Assistant.Enabled"] = "启用 AI 助手",
@@ -194,6 +201,13 @@ internal static class AssistantStrings
             "when something really is only on CurseForge, say plainly that this launcher cannot query CurseForge " +
             "instead of inventing download counts, versions or dates.",
         ["Assistant.Chat.Tools.Rejected"] = "This model does not accept tool calls, so the answer came from plain chat.",
+        ["Assistant.Chat.DeleteConfirm.Title"] = "Delete conversation",
+        ["Assistant.Chat.DeleteConfirm"] = "Delete “{0}”? This cannot be undone.",
+        ["Assistant.Title.Instruction"] = """
+            Rewrite the player's request below as a conversation-list title of at most 8 words.
+            Keep the language of the request; write proper nouns the usual way (e.g. neoforge → NeoForge, 我的世界 → Minecraft, 钠 → Sodium);
+            no quotes, no brackets, no trailing period, no "Title:" prefix, no explanation - output the title only.
+            """,
         ["Setup.Left.Item.Assistant"] = "AI Assistant",
         ["Setup.Assistant.Card.Main"] = "AI Assistant",
         ["Setup.Assistant.Enabled"] = "Enable AI assistant",

@@ -159,6 +159,8 @@ public partial class PageChatRight
         var answerIndex = AssistantSessionStore.AppendAssistantMessage(session, "");
         var cts = new CancellationTokenSource();
         _runs[session.Id] = cts;
+        // 只有第一次提问去要一个短标题；真正发出去要等这轮回答结束，见 finally
+        var needsTitle = !session.TitleIsAi && session.Messages.Count(m => m.Role == "user") == 1;
         if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
         _streamSession = session;
         _streamIndex = answerIndex;
@@ -251,10 +253,33 @@ public partial class PageChatRight
             if (_runs.TryGetValue(session.Id, out var active) && ReferenceEquals(active, cts))
                 _runs.Remove(session.Id);
             cts.Dispose();
+            // 标题请求排在回答之后：同时打两个请求容易撞上服务商的限流，
+            // 而且这一轮都失败了（多半是没配密钥）再问一次也只是白费
+            if (needsTitle && issue is null) _ = GenerateTitleAsync(session, input);
             _streamSession = null;
             _streamIndex = -1;
             UpdateInputState();
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
+        }
+    }
+
+    /// <summary>
+    /// 给这次对话要一个短标题，让左侧列表少点截断的原文。
+    /// 不带本轮的 CancellationToken：它在回答结束时就被 Dispose 了，而标题请求是那之后才发的；
+    /// 会话要是中途被删了，RenameSession 会自己把结果丢掉。
+    /// </summary>
+    private async Task GenerateTitleAsync(AssistantSession session, string request)
+    {
+        try
+        {
+            var title = await AssistantTitles.GenerateAsync(Lang.Text("Assistant.Title.Instruction"), request,
+                Config.Assistant.ApiBaseUrl, Config.Assistant.ModelName, Config.Assistant.ApiKey, CancellationToken.None);
+            if (title is null) return;
+            ModBase.RunInUi(() => AssistantSessionStore.RenameSession(session, title));
+        }
+        catch (Exception)
+        {
+            // 标题只是锦上添花：起不出来就留着截断出来的原文，不打扰用户也不影响对话
         }
     }
 

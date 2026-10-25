@@ -19,6 +19,7 @@
 | `PCL.Core/Assistant/AssistantRedactor.cs` | 外发前脱敏：用户名与完整路径、IP、UUID、坐标、种子、账号名 |
 | `PCL.Core/Assistant/AssistantSites.cs` | AI 可联网查阅的站点白名单与站内相对路径校验 |
 | `PCL.Core/Assistant/AssistantErrors.cs` | 把服务商错误归成"密钥无效 / 余额不足 / 网络 / 服务商挂了"等可提示类别 |
+| `PCL.Core/Assistant/AssistantTitles.cs` | 会话短标题：首次回答结束后再问一次模型，把左侧列表里截断的原文换成一句话 |
 | `PCL.Core/Assistant/AssistantProjectLinks.cs` | 识别回答里的 Modrinth / CurseForge 链接并查回工程信息 |
 | `PCL.Core/Assistant/AssistantConfig.cs` | `Config.Assistant.*` 配置项，密钥走 `ConfigSource.SharedEncrypt` 加密存储 |
 | `PCL.Core/Assistant/AssistantRegionBypass.cs` | 区域判定覆盖的实现，读 `AllowRestrictedFeatures` |

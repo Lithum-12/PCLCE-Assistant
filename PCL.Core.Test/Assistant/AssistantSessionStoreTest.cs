@@ -258,4 +258,33 @@ public class AssistantSessionStoreTest
         Assert.AreEqual(1, reloaded.Count);
         Assert.IsFalse(File.Exists(tempPath));
     }
+
+    [TestMethod]
+    public void RenameSession_WritesThroughWithoutBumpingActivity()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "请帮我找一下 Neoforge 可用的优化方案");
+        var stamp = session.UpdatedAt;
+
+        AssistantSessionStore.RenameSession(session, "NeoForge 优化方案");
+
+        Assert.AreEqual("NeoForge 优化方案", session.Title);
+        Assert.IsTrue(session.TitleIsAi);
+        Assert.AreEqual(stamp, session.UpdatedAt); // 改标题不该把这条顶到列表最前
+        Assert.AreEqual("NeoForge 优化方案", AssistantSessionStore.Load()[0].Title);
+    }
+
+    [TestMethod]
+    public void RenameSession_IgnoresDeletedSessionsAndBlankTitles()
+    {
+        var session = AssistantSessionStore.StartNewDraft();
+        AssistantSessionStore.AppendUserMessage(session, "在吗");
+
+        AssistantSessionStore.Delete(session);
+        AssistantSessionStore.RenameSession(session, "不该生效");
+        AssistantSessionStore.RenameSession(session, "   ");
+
+        Assert.AreEqual("在吗", session.Title);
+        Assert.IsFalse(session.TitleIsAi);
+    }
 }
