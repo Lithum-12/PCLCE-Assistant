@@ -308,6 +308,24 @@ public partial class PageChatRight
                     progress.Report(wrap.Content);
                 }
             }
+            if (answered && toolset.ActionsExecuted == 0 && !cts.IsCancellationRequested &&
+                AssistantClaims.DescribesAction(response.ToString()))
+            {
+                // 它说"已经在下载"却一个执行工具都没调（真实发生过）：给它一次带着工具的改正机会，
+                // 而不是让玩家对着假的下载状态干等
+                history.Add(new AssistantMessage("assistant", response.ToString()));
+                history.Add(new AssistantMessage("user", Lang.Text("Assistant.Chat.ClaimCorrection")));
+                _streamStatus?.ShowThinking(Lang.Text("Assistant.Chat.Thinking.Next"));
+                response.Clear();
+                var retry = await AssistantClient.SendAsync(history, Config.Assistant.ApiBaseUrl,
+                    Config.Assistant.ModelName, Config.Assistant.ApiKey,
+                    toolset.Definitions.Count > 0 ? toolset.Definitions : null, progress, cts.Token);
+                if (response.Length != retry.Content.Length)
+                {
+                    response.Clear();
+                    progress.Report(retry.Content);
+                }
+            }
         }
         catch (OperationCanceledException)
         {

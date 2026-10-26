@@ -19,6 +19,7 @@
 | `PCL.Core/Assistant/AssistantRedactor.cs` | 外发前脱敏：用户名与完整路径、IP、UUID、坐标、种子、账号名 |
 | `PCL.Core/Assistant/AssistantPermissions.cs` | 三档权限（只读 / 需要审批 / 完全控制）的取值与判定，Action 工具按档位决定挂不挂、要不要弹确认 |
 | `PCL.Core/Assistant/AssistantLoaders.cs` | 加载器名归一化（NeoForge / fabricmc / Minecraft Forge → 标准名），供下载筛选与卡片跳转共用 |
+| `PCL.Core/Assistant/AssistantClaims.cs` | 识别"已经在下载/已安装"这类描述，用来核对它是不是真的调用过工具 |
 | `PCL.Core/Assistant/AssistantApproval.cs` | 确认框三个按钮的含义（允许一次 / 本轮全部允许 / 拒绝）与 Minecraft 版本号的整段匹配 |
 | `PCL.Core/Assistant/AssistantEnvironment.cs` | 实例概况与加载器的文字化，喂给系统提示词的"当前环境" |
 | `PCL.Core/Assistant/AssistantExport.cs` | 把一段对话导出成 Markdown（左侧列表右键"导出"用它） |

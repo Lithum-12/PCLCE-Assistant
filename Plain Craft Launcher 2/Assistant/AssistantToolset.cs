@@ -63,6 +63,9 @@ internal sealed class AssistantToolset
 
     public IReadOnlyList<string> Trace => _trace;
 
+    /// <summary>这一次发送里真的执行成功过几个动作——用来核对模型说的"已经在下载"是不是真的。</summary>
+    public int ActionsExecuted { get; private set; }
+
     private bool Redacts => Config.Assistant.RedactLocalContent;
 
     private static readonly Regex ScriptStyleRegex = new(@"(?is)<(script|style)[^>]*>.*?</\1>",
@@ -114,6 +117,7 @@ internal sealed class AssistantToolset
             "list_instance_files" => ListInstanceFiles(Args(args, "path")),
             "read_instance_file" => ReadInstanceFile(Args(args, "path")),
             "read_site" => await ReadSiteAsync(Args(args, "site"), Args(args, "path"), token),
+            "download_status" => DownloadStatus(),
             "download_resource" => await AssistantActions.DownloadResource(_instance, args, token),
             "write_instance_file" => AssistantActions.WriteInstanceFile(_instance, args),
             "delete_instance_file" => AssistantActions.DeleteInstanceFile(_instance, args),
@@ -123,9 +127,11 @@ internal sealed class AssistantToolset
             _ => ($"没有名为 {call.Name} 的工具。", "", true)
         };
 
-        return new AssistantToolOutcome(
+        var outcome = new AssistantToolOutcome(
             content.Length > ContentBudgetChars + 2000 ? content[..(ContentBudgetChars + 2000)] + "\n…" : content,
             note, failed);
+        if (isAction && !failed) ActionsExecuted++;
+        return outcome;
     }
 
     /// <summary>状态条上要显示的图标与文案。</summary>
@@ -139,6 +145,7 @@ internal sealed class AssistantToolset
         "list_instance_files" => ("folder-open", Lang.Text("Assistant.Tool.list_instance_files")),
         "read_instance_file" => ("file-input", Lang.Text("Assistant.Tool.read_instance_file")),
         "read_site" => ("globe", Lang.Text("Assistant.Tool.read_site")),
+        "download_status" => ("gauge", Lang.Text("Assistant.Tool.download_status")),
         "download_resource" => ("download", Lang.Text("Assistant.Tool.download_resource")),
         "write_instance_file" => ("save", Lang.Text("Assistant.Tool.write_instance_file")),
         "delete_instance_file" => ("trash-2", Lang.Text("Assistant.Tool.delete_instance_file")),
@@ -189,6 +196,11 @@ internal sealed class AssistantToolset
         defs.Add(new("read_instance_file",
             "读取当前实例目录下的任意一个文本文件（已截断，敏感文件会被拒绝）。",
             [new AssistantToolParam("path", "相对实例根目录的文件路径，例如 options.txt、logs/latest.log、config/sodium-options.json")]));
+
+        // 让它能查真实进度，而不是凭上一轮的记忆猜"还在下载吧"
+        defs.Add(new("download_status",
+            "查看启动器当前在下载/安装面板里的任务与状态（进行中 / 已完成 / 失败 / 已中止）。不需要参数。",
+            []));
 
         var allowed = AllowedIds();
         if (allowed.Count > 0)
@@ -548,6 +560,45 @@ internal sealed class AssistantToolset
         if (!string.IsNullOrWhiteSpace(projectType)) groups.Add($"[\"project_types:{projectType.Trim().ToLowerInvariant()}\"]");
         return groups.Count == 0 ? null : "[" + string.Join(",", groups) + "]";
     }
+
+    /// <summary>
+    /// 下载面板的真实状态。没有这个工具时，模型会拿上一轮的"已经开始下载"继续编，
+    /// 说白了它没有任何办法知道自己是不是还在下载。
+    /// </summary>
+    private (string Content, string Note, bool Failed) DownloadStatus()
+    {
+        List<ModLoader.LoaderBase> tasks;
+        try
+        {
+            tasks = [.. ModLoader.loaderTaskbar];
+        }
+        catch (Exception e)
+        {
+            return ($"读不到下载面板：{e.Message}", "失败", true);
+        }
+
+        if (tasks.Count == 0)
+            return ("启动器的下载/安装面板里现在没有任何任务：之前交给它的下载要么已经全部结束，要么压根没开始。" +
+                    "要确认文件到没到位，用 list_instance_files 看 mods / shaderpacks 目录。", "0 个任务", false);
+
+        var builder = new StringBuilder($"下载/安装面板里共 {tasks.Count} 个任务：\n");
+        foreach (var task in tasks)
+            builder.Append("- ").Append(string.IsNullOrWhiteSpace(task.name) ? "未命名任务" : task.name)
+                .Append("：").Append(StateText(task.State)).Append('\n');
+        builder.Append("任务从面板上消失不等于文件写完，确认请再查目录。");
+        AddTrace($"下载面板 {tasks.Count} 个任务");
+        return (builder.ToString(), $"{tasks.Count} 个任务", false);
+    }
+
+    private static string StateText(ModBase.LoadState state) => state switch
+    {
+        ModBase.LoadState.Waiting => "排队中",
+        ModBase.LoadState.Loading => "进行中",
+        ModBase.LoadState.Finished => "已完成",
+        ModBase.LoadState.Failed => "失败",
+        ModBase.LoadState.Aborted => "已中止",
+        _ => state.ToString()
+    };
 
     private string Header() => $"实例：{_instance?.Name}｜游戏版本：{AssistantLocalReader.ReadGameVersion(_instance?.PathIndie ?? "")}｜";
 
