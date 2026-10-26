@@ -26,6 +26,7 @@
 | `PCL.Core/Assistant/AssistantLocalWriter.cs` | 往实例里写文件的唯一入口：文本扩展名白名单 + 覆盖前自动备份 |
 | `PCL.Core/Assistant/AssistantConfigKeys.cs` | AI 可改的启动器设置白名单，以及按声明类型转值 |
 | `PCL.Core/Assistant/AssistantPython.cs` | Python 解释器的候选顺序与参数拼装（纯逻辑，可单测） |
+| `Plain Craft Launcher 2/Assistant/AssistantTasks.cs` | 跟踪助手自己发起的下载任务，整批结束后让对话自动续一轮 |
 | `Plain Craft Launcher 2/Assistant/AssistantActions.cs` | 执行类动作的实现：下载资源、写文件、改设置、跑脚本 |
 | `PCL.Core/Assistant/AssistantSites.cs` | AI 可联网查阅的站点白名单与站内相对路径校验 |
 | `PCL.Core/Assistant/AssistantErrors.cs` | 把服务商错误归成"密钥无效 / 余额不足 / 网络 / 服务商挂了"等可提示类别 |

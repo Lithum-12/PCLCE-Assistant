@@ -410,6 +410,8 @@ internal static class AssistantActions
             OnStateChanged = ModDownloadLib.LoaderStateChangedHintOnly
         };
         loader.Start(1);
+        // 挂上完成回调：这一批任务全结束后，聊天页会自动续一轮（见 AssistantTasks）
+        AssistantTasks.Watch(loader, $"下载 {ModBase.GetFileNameWithoutExtentionFromPath(target)}");
         // 挂到速度面板与右下角按钮上：这两个都是 WPF 依赖属性，必须回 UI 线程
         ModBase.RunInUi(() =>
         {

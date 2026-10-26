@@ -33,6 +33,11 @@ public partial class PageChatRight
     // 入场动画只给最靠近输入框的几条做，几十条一起起故事板会直接掉帧
     private const int AnimatedControls = 8;
 
+    // 玩家发一次言之后，允许助手自己接着说几轮（等它发起的下载结束）。
+    // 没有上限它就会"下载→继续→又下载→又继续"自己聊下去，每一轮都是真金白银的请求。
+    private const int MaxAutoContinuations = 2;
+    private int _autoContinuations;
+
     // A response belongs to its session, not to whichever session happens to be selected later.
     private readonly Dictionary<string, CancellationTokenSource> _runs = new();
     private readonly HashSet<string> _discardDraftOnSwitch = new();
@@ -58,6 +63,7 @@ public partial class PageChatRight
         InputBar.SendRequested += text => _ = SendAsync(text);
         InputBar.StopRequested += StopCurrentSession;
         AssistantSessionStore.CurrentChanged += () => ModBase.RunInUi(HandleCurrentChanged);
+        AssistantTasks.AllFinished += OnAssistantTasksFinished;
         // 每个 token 都重解析 Markdown 会明显掉帧，攒到 120ms 一次
         _markdownTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
         _markdownTimer.Tick += (_, _) => FlushStreamMarkdown();
@@ -187,10 +193,17 @@ public partial class PageChatRight
         RenderCurrentSession();
     }
 
-    private async Task SendAsync(string input)
+    private async Task SendAsync(string input, bool auto = false)
     {
         input = input.Trim();
         if (input.Length == 0) return;
+
+        if (!auto)
+        {
+            // 玩家自己发言就是新一轮：自动继续的额度重置，上一批发起的任务也不再插话
+            _autoContinuations = 0;
+            AssistantTasks.Clear();
+        }
 
         var session = AssistantSessionStore.GetCurrentOrCreateDraft();
         // One active generation per conversation; other conversations can continue independently.
@@ -417,6 +430,29 @@ public partial class PageChatRight
         InputBar.DraftText = current?.DraftText ?? "";
         RenderCurrentSession();
         UpdateInputState();
+    }
+
+    /// <summary>
+    /// 助手自己发起的下载全部结束后续一轮。只投给当时选中的会话，
+    /// 而且正在生成回答时不插嘴；额度用完后就留给玩家自己开口。
+    /// </summary>
+    private void OnAssistantTasksFinished(IReadOnlyList<AssistantTaskResult> results)
+    {
+        if (results.Count == 0) return;
+        var session = AssistantSessionStore.Current;
+        if (session is null || _runs.ContainsKey(session.Id)) return;
+
+        if (_autoContinuations >= MaxAutoContinuations)
+        {
+            AssistantSessionStore.AppendHintMessage(session, "info", Lang.Text("Assistant.Chat.AutoContinue.Limited"));
+            if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
+            return;
+        }
+
+        _autoContinuations++;
+        var summary = string.Join("；", results.Select(r => r.Label + (r.Success ? " 已完成" : " 未成功")));
+        _ = SendAsync(Lang.Text("Assistant.Chat.AutoContinue", summary, MaxAutoContinuations - _autoContinuations),
+            auto: true);
     }
 
     private void StopCurrentSession()

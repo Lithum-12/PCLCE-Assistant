@@ -167,6 +167,8 @@ internal static class AssistantStrings
         ["Assistant.Approval.AllowAll"] = "本轮全部允许",
         ["Assistant.Chat.RoundsExhausted"] = "这一轮的工具调用次数已经用完，剩下的步骤没有执行。让它继续做，直接回一句\"继续\"即可。",
         ["Assistant.Chat.ClaimCorrection"] = "（系统提示）你刚才的回答说已经在下载或已经安装，但这一轮你没有调用过任何工具，也没有任何东西真的被执行。请重新回答：要么现在就去调用对应的工具，要么明确说还没开始、需要玩家点头后再做。不要重复刚才那段说法。",
+        ["Assistant.Chat.AutoContinue"] = "（自动继续）你发起的任务已经全部结束：{0}。先用 list_instance_files 等只读工具核对实际结果，再继续下一步；没有可做的就明确说明并停下，不要凭空描述进度，也不要再发起新的下载。这一轮之后最多还能自动继续 {1} 次。",
+        ["Assistant.Chat.AutoContinue.Limited"] = "自动继续的次数已经用完，剩下的步骤要你再开口的才会做。",
         ["Assistant.Title.Instruction"] = """
             把下面这条玩家请求改写成不超过 12 个词的短标题，用来显示在会话列表里。
             与请求保持同一种语言（中文请求就给中文标题）；把专有名词写成常见写法与大小写（例如 neoforge → NeoForge、我的世界 → Minecraft、钠 → Sodium）；
@@ -315,6 +317,8 @@ internal static class AssistantStrings
         ["Assistant.Approval.AllowAll"] = "Allow all this round",
         ["Assistant.Chat.RoundsExhausted"] = "This answer ran out of tool-call rounds, so the remaining steps were not executed. Reply \"go on\" and it will continue.",
         ["Assistant.Chat.ClaimCorrection"] = "(system note) Your previous answer claimed something was downloading or installed, but you called no tool this round and nothing actually ran. Answer again: either call the tool now, or say plainly that nothing has started yet and you need the player's go-ahead. Do not repeat the earlier claim.",
+        ["Assistant.Chat.AutoContinue"] = "(auto continue) The tasks you started have all finished: {0}. Verify the real result with a read-only tool such as list_instance_files, then take the next step; if there is nothing left to do, say so and stop. Do not narrate progress you have not checked, and do not queue new downloads. Up to {1} more automatic continuations remain for this request.",
+        ["Assistant.Chat.AutoContinue.Limited"] = "The automatic continuations for this request are used up; it will wait for you to speak again.",
         ["Assistant.Title.Instruction"] = """
             Rewrite the player's request below as a conversation-list title of at most 8 words.
             Keep the language of the request; write proper nouns the usual way (e.g. neoforge → NeoForge, 我的世界 → Minecraft, 钠 → Sodium);
