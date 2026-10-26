@@ -15,12 +15,13 @@ internal sealed record AssistantTaskResult(string Label, bool Success);
 /// </summary>
 internal static class AssistantTasks
 {
-    /// <summary>这一批任务全部结束。</summary>
-    public static event Action<IReadOnlyList<AssistantTaskResult>>? AllFinished;
+    /// <summary>有整批任务结束了；真正的续轮由聊天页在合适的时机 TakeReady() 取走。</summary>
+    public static event Action? BatchReady;
 
     private static readonly object Gate = new();
     private static readonly Dictionary<ModLoader.LoaderBase, string> Pending = new();
     private static readonly List<AssistantTaskResult> Done = [];
+    private static readonly List<IReadOnlyList<AssistantTaskResult>> Ready = [];
 
     public static int PendingCount
     {
@@ -47,28 +48,42 @@ internal static class AssistantTasks
             if (reported) return;
             reported = true;
             loader.OnStateChangedUi -= handler;
-            AssistantTaskResult[] batch = null;
             lock (Gate)
             {
                 if (!Pending.TryGetValue(loader, out var name)) return;
                 Pending.Remove(loader);
                 Done.Add(new AssistantTaskResult(name, newState == ModBase.LoadState.Finished));
                 if (Pending.Count > 0) return;
-                batch = Done.ToArray();
+                // 下载常常比回答先结束，所以这里只排队：谁在忙不该由这里决定
+                Ready.Add(Done.ToArray());
+                Done.Clear();
             }
 
-            ModBase.RunInUi(() => AllFinished?.Invoke(batch));
+            ModBase.RunInUi(() => BatchReady?.Invoke());
         };
         loader.OnStateChangedUi += handler;
     }
 
-    /// <summary>玩家自己发言了：之前挂着的任务结束后不再触发自动继续。</summary>
+    /// <summary>取走最早结束的那一批；没有排好的批次时返回 null。</summary>
+    public static IReadOnlyList<AssistantTaskResult>? TakeReady()
+    {
+        lock (Gate)
+        {
+            if (Ready.Count == 0) return null;
+            var batch = Ready[0];
+            Ready.RemoveAt(0);
+            return batch;
+        }
+    }
+
+    /// <summary>玩家自己发言了：之前挂着的任务和排好队的批次都不再触发自动继续。</summary>
     public static void Clear()
     {
         lock (Gate)
         {
             Pending.Clear();
             Done.Clear();
+            Ready.Clear();
         }
     }
 }

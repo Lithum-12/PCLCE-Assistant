@@ -63,7 +63,7 @@ public partial class PageChatRight
         InputBar.SendRequested += text => _ = SendAsync(text);
         InputBar.StopRequested += StopCurrentSession;
         AssistantSessionStore.CurrentChanged += () => ModBase.RunInUi(HandleCurrentChanged);
-        AssistantTasks.AllFinished += OnAssistantTasksFinished;
+        AssistantTasks.BatchReady += OnAssistantTasksReady;
         // 每个 token 都重解析 Markdown 会明显掉帧，攒到 120ms 一次
         _markdownTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
         _markdownTimer.Tick += (_, _) => FlushStreamMarkdown();
@@ -373,6 +373,8 @@ public partial class PageChatRight
             _streamIndex = -1;
             UpdateInputState();
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
+            // 回答期间完成的下载会排在那儿等这一刻：本轮真的结束了，才决定要不要自动续
+            OnAssistantTasksReady();
         }
     }
 
@@ -433,14 +435,15 @@ public partial class PageChatRight
     }
 
     /// <summary>
-    /// 助手自己发起的下载全部结束后续一轮。只投给当时选中的会话，
-    /// 而且正在生成回答时不插嘴；额度用完后就留给玩家自己开口。
+    /// 助手自己发起的下载结束后续一轮。批次是排队的：下载常常比回答先完成，
+    /// 那种情况下这里只是看一眼、什么都不做，等这轮回答结束时再取，通知不会丢。
     /// </summary>
-    private void OnAssistantTasksFinished(IReadOnlyList<AssistantTaskResult> results)
+    private void OnAssistantTasksReady()
     {
-        if (results.Count == 0) return;
         var session = AssistantSessionStore.Current;
         if (session is null || _runs.ContainsKey(session.Id)) return;
+        var batch = AssistantTasks.TakeReady();
+        if (batch is null || batch.Count == 0) return;
 
         if (_autoContinuations >= MaxAutoContinuations)
         {
@@ -450,7 +453,7 @@ public partial class PageChatRight
         }
 
         _autoContinuations++;
-        var summary = string.Join("；", results.Select(r => r.Label + (r.Success ? " 已完成" : " 未成功")));
+        var summary = string.Join("；", batch.Select(r => r.Label + (r.Success ? " 已完成" : " 未成功")));
         _ = SendAsync(Lang.Text("Assistant.Chat.AutoContinue", summary, MaxAutoContinuations - _autoContinuations),
             auto: true);
     }
