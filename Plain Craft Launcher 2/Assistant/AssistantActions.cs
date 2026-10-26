@@ -55,6 +55,75 @@ internal static class AssistantActions
         }
     }
 
+    /// <summary>
+    /// 走上游自己的安装路径建实例：McInstall 只需要实例名 + Minecraft 版本号，
+    /// 版本 json 与下载源都留空让它按启动器配置去解析（这样 BMCLAPI 镜像设置照样生效）。
+    /// </summary>
+    public static (string Content, string Note, bool Failed) CreateInstance(Dictionary<string, string> args)
+    {
+        var name = args.GetValueOrDefault("name", "").Trim();
+        var version = args.GetValueOrDefault("version", "").Trim();
+        if (name.Length == 0 || version.Length == 0)
+            return ("需要同时给出 name（新实例名）和 version（Minecraft 版本号，例如 1.21.1）。", "", true);
+        if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            return ($"实例名 \"{name}\" 里有 Windows 不允许的字符，换个干净点的名字。", "名字非法", true);
+        var root = ModFolder.mcFolderSelected;
+        if (string.IsNullOrWhiteSpace(root)) return ("还不知道 .minecraft 根目录在哪，先让玩家在设置里选好游戏目录。", "无根目录", true);
+        if (Directory.Exists(Path.Combine(root, "versions", name)))
+            return ($"已经有一个叫 \"{name}\" 的实例了。换个名字，或者让玩家直接在实例列表里操作。", "重名", true);
+
+        var loader = AssistantLoaders.Normalize(args.GetValueOrDefault("loader", ""));
+        var loaderVersion = args.GetValueOrDefault("loader_version", "").Trim();
+        if (loader is "quilt" or "liteloader")
+            return ($"上游的安装请求里没有 {loader} 的入口，这一版装不了它。可以先只装 {version} 原版实例，" +
+                    "再让玩家自己加加载器。", "不支持", true);
+        if (loader is not null && loaderVersion.Length == 0)
+            return ($"要装 {loader} 但没给 loader_version。先用 read_site 查这个 Minecraft 版本对应的加载器版本：" +
+                    "fabric 看 meta.fabricmc.net 的 /v2/versions/loader/1.21.1，" +
+                    "forge 看 files.minecraftforge.net 的 /net/minecraftforge/forge/promotions_slim.json，" +
+                    "neoforge 看 maven.neoforged.net 的版本列表；查不到就只装原版（不传 loader）。", "缺加载器版本", true);
+
+        var request = new ModDownloadLib.McInstallRequest
+        {
+            targetInstanceName = name,
+            targetInstanceFolder = Path.Combine(root, "versions", name) + Path.DirectorySeparatorChar,
+            minecraftName = version,
+            minecraftJson = null
+        };
+        switch (loader)
+        {
+            case "fabric":
+            case "legacyfabric":
+                request.fabricVersion = loaderVersion;
+                break;
+            case "neoforge":
+                request.neoForgeVersion = loaderVersion;
+                break;
+            case "forge":
+                request.forgeVersion = loaderVersion;
+                break;
+        }
+
+        bool started;
+        try
+        {
+            started = ModDownloadLib.McInstall(request);
+        }
+        catch (Exception e)
+        {
+            ModBase.Log(e, "[Assistant] 安装实例失败");
+            return ($"安装请求没有通过：{e.Message}", "失败", true);
+        }
+
+        if (!started)
+            return ("启动器没有接受这次安装请求（可能是区域限制被关掉了，或者同名实例刚被创建）。", "未开始", true);
+
+        return ($"已开始安装新实例 \"{name}\"（Minecraft {version}" +
+                (loader is null ? "，原版" : $" · {loader} {loaderVersion}") + "）。" +
+                "进度在启动器右下角的下载面板，装完实例列表会自动出现它；" +
+                "现在还没装好，不要声称完成，也不要往这个实例里继续装 mod。", name, false);
+    }
+
     public static async Task<(string Content, string Note, bool Failed)> RunPython(McInstance? instance,
         Dictionary<string, string> args, CancellationToken token)
     {

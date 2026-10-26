@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -227,7 +228,7 @@ public partial class PageChatRight
         var response = new StringBuilder();
         // 实例在发送时就固定，回答中途切换实例不会把两份数据混在一起
         var toolset = new AssistantToolset(ModInstanceList.McMcInstanceSelected);
-        var history = new List<AssistantMessage> { new("system", BuildSystemPrompt()) };
+        var history = new List<AssistantMessage> { new("system", BuildSystemPrompt(toolset)) };
         // 警告框只是给人看的诊断，不能混进模型上下文
         history.AddRange(session.Messages.GetRange(0, answerIndex).Where(m => m.Role != "hint"));
         var progress = new InlineProgress<string>(delta =>
@@ -412,23 +413,81 @@ public partial class PageChatRight
         InputBar.SetBusy(session is not null && _runs.ContainsKey(session.Id));
     }
 
-    private string BuildSystemPrompt()
+    private string BuildSystemPrompt(AssistantToolset toolset)
     {
-        var prompt = Lang.Text("Assistant.Chat.System");
+        var prompt = Lang.Text("Assistant.Chat.System") + "\n" +
+                      Lang.Text("Assistant.Chat.System.Env", DescribeEnvironment(toolset));
         // CurseForge 的工具是按密钥挂载的，没挂载就得告诉模型别推荐那条路
         if (string.IsNullOrWhiteSpace(Secrets.CurseForgeAPIKey))
             prompt += "\n" + Lang.Text("Assistant.Chat.System.NoCurseForge");
         // 让模型知道自己现在处在哪一档：只读时该说"只读模式我无法操作文件"，而不是含糊的"我没这个能力"
-        prompt += "\n" + Lang.Text(AssistantPermissions.Parse(Config.Assistant.PermissionMode) switch
+        var tier = AssistantPermissions.Parse(Config.Assistant.PermissionMode);
+        prompt += "\n" + Lang.Text(tier switch
         {
             AssistantPermissionMode.Read => "Assistant.Chat.System.Tier.Read",
             AssistantPermissionMode.Full => "Assistant.Chat.System.Tier.Full",
             _ => "Assistant.Chat.System.Tier.Ask"
         });
-        var instance = ModInstanceList.McMcInstanceSelected?.Name;
-        return string.IsNullOrWhiteSpace(instance)
-            ? prompt
-            : prompt + "\n" + Lang.Text("Assistant.Chat.System.Instance", instance);
+        if (tier != AssistantPermissionMode.Read)
+            // "帮我安装光影包"这种口语说法，直接对上工具名，省得它以为自己装不了
+            prompt += "\n" + Lang.Text("Assistant.Chat.System.Intent");
+        return prompt;
+    }
+
+    /// <summary>
+    /// 实例概况、档位、这一轮真的挂了哪些工具——模型之前会说自己装不了光影，
+    /// 就是这些信息只能凭记忆猜。
+    /// </summary>
+    private static string DescribeEnvironment(AssistantToolset toolset)
+    {
+        var lines = new List<string>();
+        var instance = ModInstanceList.McMcInstanceSelected;
+        if (instance is null)
+        {
+            lines.Add("- " + Lang.Text("Assistant.Chat.System.Env.NoInstance"));
+        }
+        else
+        {
+            var info = instance.Info;
+            lines.Add("- " + Lang.Text("Assistant.Chat.System.Env.Instance",
+                AssistantEnvironment.DescribeInstance(instance.Name, info.VanillaName,
+                    AssistantEnvironment.DescribeLoaders(info.HasFabric, info.HasLegacyFabric, info.HasQuilt,
+                        info.HasNeoForge, info.HasForge, info.HasLiteLoader),
+                    IsIsolated(instance), CountModFiles(instance))));
+        }
+
+        lines.Add("- " + Lang.Text("Assistant.Chat.System.Env.Tier", Lang.Text(
+            AssistantPermissions.Parse(Config.Assistant.PermissionMode) switch
+            {
+                AssistantPermissionMode.Read => "Assistant.Chat.Permission.Read",
+                AssistantPermissionMode.Full => "Assistant.Chat.Permission.Full",
+                _ => "Assistant.Chat.Permission.Ask"
+            })));
+        lines.Add("- " + Lang.Text(toolset.Definitions.Count == 0
+                ? "Assistant.Chat.System.Env.NoTools"
+                : "Assistant.Chat.System.Env.Tools",
+            string.Join("、", toolset.Definitions.Select(d => d.Name))));
+        lines.Add("- " + Lang.Text(toolset.SiteLabels.Count == 0
+                ? "Assistant.Chat.System.Env.NoSites"
+                : "Assistant.Chat.System.Env.Sites", string.Join("、", toolset.SiteLabels)));
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>版本隔离开没开：PathIndie 与 PathInstance 不同就说明这个实例有自己的目录。</summary>
+    private static bool IsIsolated(McInstance instance)
+    {
+        static string Trim(string p) => (p ?? "").TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return !string.Equals(Trim(Path.GetFullPath(instance.PathIndie ?? "")),
+            Trim(Path.GetFullPath(instance.PathInstance ?? "")), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int CountModFiles(McInstance instance)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dir in new[] { instance.PathInstance, instance.PathIndie }
+                 .Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var name in AssistantLocalReader.ReadModFileNames(dir)) names.Add(name);
+        return names.Count;
     }
 
     // AssistantClient awaits on the UI context. Report inline so deltas cannot be queued after

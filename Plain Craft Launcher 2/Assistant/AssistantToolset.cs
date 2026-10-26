@@ -119,6 +119,7 @@ internal sealed class AssistantToolset
             "delete_instance_file" => AssistantActions.DeleteInstanceFile(_instance, args),
             "set_launcher_config" => AssistantActions.SetLauncherConfig(args),
             "run_python" => await AssistantActions.RunPython(_instance, args, token),
+            "create_instance" => AssistantActions.CreateInstance(args),
             _ => ($"没有名为 {call.Name} 的工具。", "", true)
         };
 
@@ -143,6 +144,7 @@ internal sealed class AssistantToolset
         "delete_instance_file" => ("trash-2", Lang.Text("Assistant.Tool.delete_instance_file")),
         "set_launcher_config" => ("settings", Lang.Text("Assistant.Tool.set_launcher_config")),
         "run_python" => ("flask-conical", Lang.Text("Assistant.Tool.run_python")),
+        "create_instance" => ("package-plus", Lang.Text("Assistant.Tool.create_instance")),
         _ => ("settings", Lang.Text("Assistant.Tool.unknown"))
     };
 
@@ -228,6 +230,15 @@ internal sealed class AssistantToolset
                     new AssistantToolParam("key", "配置键名，只能是：" + string.Join("、", AssistantConfigKeys.Allowed)),
                     new AssistantToolParam("value", "新值，按该键的类型给（布尔给 true/false，数字给数字）")
                 ], AssistantToolKind.Action));
+            defs.Add(new("create_instance",
+                "用启动器自己的安装流程新建一个 Minecraft 实例，可选带上 Fabric / NeoForge / Forge 加载器。" +
+                "调用之后只是开始安装：进度在启动器的下载面板里，装完实例列表会自动出现它。整合包不要用这个工具。",
+                [
+                    new AssistantToolParam("name", "新实例的文件夹名，必须是合法文件名"),
+                    new AssistantToolParam("version", "Minecraft 版本号，例如 1.21.1"),
+                    new AssistantToolParam("loader", "可选，fabric / neoforge / forge；不填就装原版"),
+                    new AssistantToolParam("loader_version", "填了 loader 就必须给，例如 fabric 的 0.16.9、forge 的 52.1.20；不知道就先别填 loader，或者用 read_site 查一下")
+                ], AssistantToolKind.Action));
             defs.Add(new("run_python",
                 "在当前实例目录下执行一段 Python 脚本，返回 stdout/stderr 与退出码。" +
                 "用来做批量分析或按方案改配置；解释器按 py → python → python3 顺序找。",
@@ -239,6 +250,12 @@ internal sealed class AssistantToolset
 
         return defs;
     }
+
+    /// <summary>这一轮真的允许联网查哪些站点，写进环境简报给模型看。</summary>
+    public IReadOnlyList<string> SiteLabels => AssistantSites.All
+        .Where(s => AssistantSites.Allows(s.Id, _allowedSites))
+        .Select(s => s.Label)
+        .ToList();
 
     private List<string> AllowedIds() => AssistantSites.All
         .Where(s => AssistantSites.Allows(s.Id, _allowedSites))

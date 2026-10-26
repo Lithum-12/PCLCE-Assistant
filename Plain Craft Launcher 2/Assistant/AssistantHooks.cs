@@ -95,6 +95,7 @@ internal static class AssistantStrings
         ["Assistant.Tool.download_resource"] = "下载资源",
         ["Assistant.Tool.write_instance_file"] = "写入实例文件",
         ["Assistant.Tool.delete_instance_file"] = "把实例文件放进回收站",
+        ["Assistant.Tool.create_instance"] = "新建实例",
         ["Assistant.Tool.set_launcher_config"] = "修改启动器设置",
         ["Assistant.Tool.run_python"] = "执行 Python 脚本",
         ["Assistant.Chat.System"] = """
@@ -108,7 +109,20 @@ internal static class AssistantStrings
 
             回答保持简洁。
             """,
-        ["Assistant.Chat.System.Instance"] = "当前选中的游戏实例：{0}",
+        ["Assistant.Chat.System.Intent"] = """
+            【玩家的说法对应哪个工具】"装一个 / 下载 / 加个" mod、模组、光影包、材质包、世界 → download_resource：光影包和材质包一样能装，它们只是落到 shaderpacks、resourcepacks 目录里的文件；"删掉 / 移除 / 卸载" → delete_instance_file；"改配置 / 调选项" → write_instance_file；"改启动器设置（内存、JVM 参数、窗口）" → set_launcher_config；"算一下 / 批量处理 / 分析文件" → run_python；"建个新实例 / 装个 1.21.1 的游戏 / 顺便加个 Fabric" → create_instance。这些都算在你当前的能力范围内，不要再说自己做不到。
+            """,
+        ["Assistant.Chat.System.Env"] = """
+            【当前环境】
+            {0}
+            """,
+        ["Assistant.Chat.System.Env.NoInstance"] = "当前没有选中任何实例：需要实例信息时，先让玩家在「实例」页选一个。",
+        ["Assistant.Chat.System.Env.Instance"] = "当前实例：{0}",
+        ["Assistant.Chat.System.Env.Tier"] = "权限档位：{0}",
+        ["Assistant.Chat.System.Env.Tools"] = "这一轮真的挂载给你的工具：{0}。清单里没有的别说自己能做，清单里的也别推辞。",
+        ["Assistant.Chat.System.Env.NoTools"] = "这一轮没有挂载任何工具（工具开关已关闭），只能凭对话内容回答。",
+        ["Assistant.Chat.System.Env.Sites"] = "可联网查阅的站点：{0}",
+        ["Assistant.Chat.System.Env.NoSites"] = "没有开启任何可查阅站点，无法联网查证。",
         ["Assistant.Chat.System.NoCurseForge"] =
             "【本机没有 CurseForge 密钥】search_curseforge 与 CurseForge 站点查阅这次没有挂载，CurseForge 链接也不会变成卡片。" +
             "请一律优先给 Modrinth、MC 百科、ModpackIndex 这些不需要代理的来源；确实只有 CurseForge 才有某项资源时，" +
@@ -217,6 +231,7 @@ internal static class AssistantStrings
         ["Assistant.Tool.download_resource"] = "Downloading a resource",
         ["Assistant.Tool.write_instance_file"] = "Writing an instance file",
         ["Assistant.Tool.delete_instance_file"] = "Recycling an instance file",
+        ["Assistant.Tool.create_instance"] = "Creating an instance",
         ["Assistant.Tool.set_launcher_config"] = "Changing a launcher setting",
         ["Assistant.Tool.run_python"] = "Running a Python script",
         ["Assistant.Chat.System"] = """
@@ -230,7 +245,20 @@ internal static class AssistantStrings
 
             Keep answers short.
             """,
-        ["Assistant.Chat.System.Instance"] = "Currently selected instance: {0}",
+        ["Assistant.Chat.System.Intent"] = """
+            [Mapping what the player says to a tool] "install / download / add" a mod, shader pack, texture pack or world -> download_resource: shader and resource packs install just as well, they are only files dropped into shaderpacks and resourcepacks; "remove / delete / uninstall" -> delete_instance_file; "change a config or option" -> write_instance_file; "change a launcher setting (memory, JVM args, window)" -> set_launcher_config; "compute / batch-process / analyse files" -> run_python; "make a new instance / install 1.21.1 / add Fabric to it" -> create_instance. All of these are within what you can actually do - do not claim otherwise.
+            """,
+        ["Assistant.Chat.System.Env"] = """
+            [Current situation]
+            {0}
+            """,
+        ["Assistant.Chat.System.Env.NoInstance"] = "No instance is selected right now: ask the player to pick one on the Instances page first.",
+        ["Assistant.Chat.System.Env.Instance"] = "Current instance: {0}",
+        ["Assistant.Chat.System.Env.Tier"] = "Permission tier: {0}",
+        ["Assistant.Chat.System.Env.Tools"] = "Tools actually attached to you this round: {0}. Do not claim anything that is not on this list, and do not refuse something that is.",
+        ["Assistant.Chat.System.Env.NoTools"] = "No tools are attached this round (the tool switch is off); answer from the conversation only.",
+        ["Assistant.Chat.System.Env.Sites"] = "Sites you may read online: {0}",
+        ["Assistant.Chat.System.Env.NoSites"] = "No sites are enabled, so you cannot verify anything online.",
         ["Assistant.Chat.System.NoCurseForge"] =
             "[No CurseForge key on this machine] search_curseforge and CurseForge site reads are not attached this run, " +
             "and CurseForge links will not render as cards. Prefer Modrinth, mcmod.cn and ModpackIndex, which need no proxy; " +
