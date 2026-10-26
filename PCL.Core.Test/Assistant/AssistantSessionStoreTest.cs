@@ -269,7 +269,7 @@ public class AssistantSessionStoreTest
         AssistantSessionStore.RenameSession(session, "NeoForge 优化方案");
 
         Assert.AreEqual("NeoForge 优化方案", session.Title);
-        Assert.IsTrue(session.TitleIsAi);
+        Assert.IsTrue(session.TitleLocked);
         Assert.AreEqual(stamp, session.UpdatedAt); // 改标题不该把这条顶到列表最前
         Assert.AreEqual("NeoForge 优化方案", AssistantSessionStore.Load()[0].Title);
     }
@@ -285,6 +285,6 @@ public class AssistantSessionStoreTest
         AssistantSessionStore.RenameSession(session, "   ");
 
         Assert.AreEqual("在吗", session.Title);
-        Assert.IsFalse(session.TitleIsAi);
+        Assert.IsFalse(session.TitleLocked);
     }
 }

@@ -218,7 +218,7 @@ public partial class PageChatRight
         var cts = new CancellationTokenSource();
         _runs[session.Id] = cts;
         // 只有第一次提问去要一个短标题；真正发出去要等这轮回答结束，见 finally
-        var needsTitle = !session.TitleIsAi && session.Messages.Count(m => m.Role == "user") == 1;
+        var needsTitle = !session.TitleLocked && session.Messages.Count(m => m.Role == "user") == 1;
         if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
         _streamSession = session;
         _streamIndex = answerIndex;

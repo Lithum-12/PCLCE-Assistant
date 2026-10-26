@@ -12,8 +12,8 @@ public sealed class AssistantSession
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Title { get; set; } = "";
-    // 标题是不是 AI 起的：起过一次就不再花第二次钱，旧文件里没这个字段时按 false 处理
-    public bool TitleIsAi { get; set; }
+    // 标题已经定下来了（AI 起的名，或玩家自己改的名）：不再花第二次钱去起名
+    public bool TitleLocked { get; set; }
     public long CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
     // Zero means this is a legacy session which predates UpdatedAt; order it by CreatedAt.
     public long UpdatedAt { get; set; }
@@ -222,7 +222,7 @@ public static class AssistantSessionStore
         if (string.IsNullOrWhiteSpace(title)) return;
         if (!Sessions.Contains(session)) return;
         session.Title = title;
-        session.TitleIsAi = true;
+        session.TitleLocked = true;
         Save();
     }
 
