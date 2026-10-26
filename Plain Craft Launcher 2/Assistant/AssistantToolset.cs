@@ -45,6 +45,8 @@ internal sealed class AssistantToolset
     private readonly McInstance? _instance;
     private readonly List<string> _allowedSites;
     private readonly List<string> _trace = [];
+    // 点了"本轮都允许"之后，这一次发送里剩下的执行动作不再弹框（工具集是按次发送构造的，下一条消息自动重置）
+    private bool _allowAllForRun;
 
     public AssistantToolset(McInstance? instance)
     {
@@ -95,8 +97,8 @@ internal sealed class AssistantToolset
                 "只读档", false);
         }
 
-        if (definition is not null && AssistantPermissions.NeedsApproval(PermissionMode, isAction) &&
-            !Approve(definition, args))
+        if (definition is not null && !_allowAllForRun &&
+            AssistantPermissions.NeedsApproval(PermissionMode, isAction) && !Approve(definition, args))
         {
             AddTrace($"拒绝 {definition.Name}");
             return new AssistantToolOutcome(Refused(definition.Name, "用户在权限确认里拒绝了这次操作。"), "已拒绝", false);
@@ -243,7 +245,10 @@ internal sealed class AssistantToolset
         .Select(s => s.Id)
         .ToList();
 
-    /// <summary>执行类工具的确认框：把要做什么、对哪儿做说清楚。拿不到主窗体时按拒绝处理，不默认放行。</summary>
+    /// <summary>
+    /// 执行类动作的确认框：把要做什么、对哪儿做说清楚。三个按钮分别是"只允许这一个 / 本轮都允许 / 取消"，
+    /// 因为一次装好几个模组时逐个点太折磨人。拿不到主窗体时按拒绝处理，不默认放行。
+    /// </summary>
     private bool Approve(AssistantToolDef definition, Dictionary<string, string> args)
     {
         if (ModMain.frmMain is null) return false;
@@ -253,9 +258,15 @@ internal sealed class AssistantToolset
         var result = ModMain.MyMsgBox(
             Lang.Text("Assistant.Approval.Content", label, detail.Length == 0 ? "（无参数）" : detail),
             Lang.Text("Assistant.Approval.Title"),
-            Lang.Text("Common.Action.Confirm"), Lang.Text("Common.Action.Cancel"), isWarn: true);
-        if (result == 1) AddTrace($"经你同意才执行 {label}");
-        return result == 1;
+            Lang.Text("Common.Action.Confirm"),
+            Lang.Text("Assistant.Approval.AllowAll"), Lang.Text("Common.Action.Cancel"), isWarn: true);
+        var decision = AssistantApproval.FromDialogResult(result);
+        if (decision != AssistantApprovalDecision.Deny)
+            AddTrace(decision == AssistantApprovalDecision.All
+                ? $"经你同意才执行 {label}（本轮后续不再问）"
+                : $"经你同意才执行 {label}");
+        if (decision == AssistantApprovalDecision.All) _allowAllForRun = true;
+        return decision != AssistantApprovalDecision.Deny;
     }
 
     private static string Refused(string toolName, string reason) =>

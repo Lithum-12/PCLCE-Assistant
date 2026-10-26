@@ -310,11 +310,10 @@ internal static class AssistantActions
         _ => []
     };
 
-    /// <summary>版本要落在文件声明的版本列表里；加载器要有交集。文件本身没声明加载器（材质、光影、世界）时不按加载器卡。</summary>
+    /// <summary>版本要整段对上（1.21.1 不会命中 1.21.11）；加载器要有交集。文件本身没声明加载器（材质、光影、世界）时不按加载器卡。</summary>
     private static bool Fits(ModComp.CompFile file, string version, List<ModComp.CompLoaderType> loaders)
     {
-        if (version.Length > 0 && file.GameVersions.Count > 0 &&
-            !file.GameVersions.Any(v => v.Contains(version, StringComparison.OrdinalIgnoreCase)))
+        if (version.Length > 0 && file.GameVersions.Count > 0 && !AssistantVersions.AnyMatches(file.GameVersions, version))
             return false;
         if (loaders.Count > 0 && file.ModLoaders.Count > 0 && !file.ModLoaders.Intersect(loaders).Any())
             return false;

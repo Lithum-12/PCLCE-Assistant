@@ -140,6 +140,8 @@ internal static class AssistantStrings
         ["Assistant.Chat.Permission.Full.Tip"] = "执行类工具不再询问，直接动手。改过什么只记在每条回答左下角的痕迹里，不会再提醒。点一下切回「只读」。",
         ["Assistant.Approval.Title"] = "需要你的确认",
         ["Assistant.Approval.Content"] = "AI 请求执行：{0}\n参数：{1}\n当前权限档位是「需要审批」，允许吗？",
+        ["Assistant.Approval.AllowAll"] = "本轮全部允许",
+        ["Assistant.Chat.RoundsExhausted"] = "这一轮的工具调用次数已经用完，剩下的步骤没有执行。让它继续做，直接回一句\"继续\"即可。",
         ["Assistant.Title.Instruction"] = """
             把下面这条玩家请求改写成不超过 12 个词的短标题，用来显示在会话列表里。
             与请求保持同一种语言（中文请求就给中文标题）；把专有名词写成常见写法与大小写（例如 neoforge → NeoForge、我的世界 → Minecraft、钠 → Sodium）；
@@ -261,6 +263,8 @@ internal static class AssistantStrings
         ["Assistant.Chat.Permission.Full.Tip"] = "Action tools run without asking. What changed is only recorded in the per-answer trace at the bottom-left of the card, with no further prompts. Click to go back to Read only.",
         ["Assistant.Approval.Title"] = "Approval needed",
         ["Assistant.Approval.Content"] = "The assistant wants to run: {0}\nArguments: {1}\nYour permission tier is \"Ask first\" - allow it?",
+        ["Assistant.Approval.AllowAll"] = "Allow all this round",
+        ["Assistant.Chat.RoundsExhausted"] = "This answer ran out of tool-call rounds, so the remaining steps were not executed. Reply \"go on\" and it will continue.",
         ["Assistant.Title.Instruction"] = """
             Rewrite the player's request below as a conversation-list title of at most 8 words.
             Keep the language of the request; write proper nouns the usual way (e.g. neoforge → NeoForge, 我的世界 → Minecraft, 钠 → Sodium);

@@ -18,8 +18,9 @@ namespace PCL.Assistant;
 
 public partial class PageChatRight
 {
-    // 工具往返的轮数上限：一次追问一般 1~2 轮就够，留一点余量又不至于跑飞
-    private const int MaxToolRounds = 4;
+    // 工具往返的轮数上限：装一套模组（查→下→再查依赖）很容易就三四轮，4 轮太紧；
+    // 用完还有话要说时另加一轮"不带工具"的收尾，见 SendAsync
+    private const int MaxToolRounds = 6;
 
     // 一轮问答里最多允许带上多少字的本地内容，超过就不再执行新工具
     private const int MaxToolChars = 24000;
@@ -238,6 +239,8 @@ public partial class PageChatRight
         });
         var toolsRejected = false;
         var toolChars = 0;
+        var answered = false;
+        var roundsTruncated = false;
         AssistantIssue? issue = null;
         _streamStatus?.ShowThinking(Lang.Text("Assistant.Chat.Thinking"));
         try
@@ -256,7 +259,11 @@ public partial class PageChatRight
                     progress.Report(reply.Content);
                 }
 
-                if (reply.ToolCalls.Count == 0) break;
+                if (reply.ToolCalls.Count == 0)
+                {
+                    answered = true;
+                    break;
+                }
 
                 history.Add(AssistantMessage.AssistantWithTools(reply.ToolCalls, reply.Content));
                 if (reply.Content.Length > 0) progress.Report("\n\n");
@@ -285,6 +292,21 @@ public partial class PageChatRight
 
                 status?.ShowThinking(Lang.Text("Assistant.Chat.Thinking.Next"));
             }
+
+            if (!answered)
+            {
+                // 轮次用完而模型还想继续调工具：直接停手会让回答停在半路，看着就像"聊着聊着断了"。
+                // 再要一轮，这次不给工具，逼它把手上已有的信息总结完。
+                roundsTruncated = true;
+                var before = response.Length;
+                var wrap = await AssistantClient.SendAsync(history, Config.Assistant.ApiBaseUrl,
+                    Config.Assistant.ModelName, Config.Assistant.ApiKey, null, progress, cts.Token);
+                if (response.Length != before + wrap.Content.Length)
+                {
+                    response.Length = before;
+                    progress.Report(wrap.Content);
+                }
+            }
         }
         catch (OperationCanceledException)
         {
@@ -297,6 +319,9 @@ public partial class PageChatRight
         }
         finally
         {
+            if (roundsTruncated && issue is null)
+                // 让它自己收尾了，也要告诉玩家为什么只做到一半
+                issue = new AssistantIssue("warn", "Assistant.Chat.RoundsExhausted", "");
             _markdownTimer.Stop();
             FlushStreamMarkdown();
             if (issue is not null && response.Length == 0)
