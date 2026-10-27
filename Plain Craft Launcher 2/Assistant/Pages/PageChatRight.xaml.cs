@@ -254,6 +254,7 @@ public partial class PageChatRight
         var toolsRejected = false;
         var toolChars = 0;
         var answered = false;
+        var corrected = false;
         var roundsTruncated = false;
         AssistantIssue? issue = null;
         _streamStatus?.ShowThinking(Lang.Text("Assistant.Chat.Thinking"));
@@ -275,6 +276,22 @@ public partial class PageChatRight
 
                 if (reply.ToolCalls.Count == 0)
                 {
+                    if (!corrected && toolset.ActionsExecuted == 0 && !cts.IsCancellationRequested &&
+                        AssistantClaims.DescribesAction(response.ToString()))
+                    {
+                        // 它说"已经在下载"却一个执行工具都没调（真实发生过）：把这句话退回给它自己纠正。
+                        // 改正必须留在轮次循环里做：单独发一次只取正文的请求，会把它这回真的发出来的
+                        // tool_call 整个丢掉，回答就停在"现在真的发起下载："后面再没内容
+                        corrected = true;
+                        history.Add(new AssistantMessage("assistant", response.ToString()));
+                        history.Add(new AssistantMessage("user", Lang.Text("Assistant.Chat.ClaimCorrection")));
+                        response.Clear();
+                        AssistantSessionStore.UpdateMessage(session, answerIndex, "");
+                        _streamDirty = true;
+                        _streamStatus?.ShowThinking(Lang.Text("Assistant.Chat.Thinking.Next"));
+                        continue;
+                    }
+
                     answered = true;
                     break;
                 }
@@ -319,24 +336,6 @@ public partial class PageChatRight
                 {
                     response.Length = before;
                     progress.Report(wrap.Content);
-                }
-            }
-            if (answered && toolset.ActionsExecuted == 0 && !cts.IsCancellationRequested &&
-                AssistantClaims.DescribesAction(response.ToString()))
-            {
-                // 它说"已经在下载"却一个执行工具都没调（真实发生过）：给它一次带着工具的改正机会，
-                // 而不是让玩家对着假的下载状态干等
-                history.Add(new AssistantMessage("assistant", response.ToString()));
-                history.Add(new AssistantMessage("user", Lang.Text("Assistant.Chat.ClaimCorrection")));
-                _streamStatus?.ShowThinking(Lang.Text("Assistant.Chat.Thinking.Next"));
-                response.Clear();
-                var retry = await AssistantClient.SendAsync(history, Config.Assistant.ApiBaseUrl,
-                    Config.Assistant.ModelName, Config.Assistant.ApiKey,
-                    toolset.Definitions.Count > 0 ? toolset.Definitions : null, progress, cts.Token);
-                if (response.Length != retry.Content.Length)
-                {
-                    response.Clear();
-                    progress.Report(retry.Content);
                 }
             }
         }

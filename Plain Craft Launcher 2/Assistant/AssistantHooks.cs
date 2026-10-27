@@ -118,7 +118,7 @@ internal static class AssistantStrings
             回答保持简洁。
             """,
         ["Assistant.Chat.System.Intent"] = """
-            【玩家的说法对应哪个工具】"装一个 / 下载 / 加个" mod、模组、光影包、材质包、世界 → download_resource：光影包和材质包一样能装，它们只是落到 shaderpacks、resourcepacks 目录里的文件；"删掉 / 移除 / 卸载" → delete_instance_file；"改配置 / 调选项" → write_instance_file；"改启动器设置（内存、JVM 参数、窗口）" → set_launcher_config；"算一下 / 批量处理 / 分析文件" → run_python；"建个新实例 / 装个 1.21.1 的游戏 / 顺便加个 Fabric" → create_instance。这些都算在你当前的能力范围内，不要再说自己做不到。
+            【玩家的说法对应哪个工具】"装一个 / 下载 / 加个" mod、模组、光影包、材质包、世界 → download_resource：光影包和材质包一样能装，它们只是落到 shaderpacks、resourcepacks 目录里的文件；"删掉 / 移除 / 卸载" → delete_instance_file；"改配置 / 调选项" → write_instance_file；"改启动器设置（内存、JVM 参数、窗口）" → set_launcher_config；"算一下 / 批量处理 / 分析文件" → run_python；"建个新实例 / 装个 1.21.1 的游戏 / 顺便加个 Fabric" → create_instance。这些都算在你当前的能力范围内，不要再说自己做不到。工具名只是给你自己对号入座的：要动手就直接发起工具调用，不要在回答里写 download_resource(project=...) 这种文本，那什么也不会发生，只会让玩家以为已经在装了。
 
             【不许凭空描述动作】只有在这一轮真的调用过工具、并且工具返回成功之后，才能用"已经开始 / 正在下载 / 已经装好"这种说法；没调用工具就只用将来时写你打算做什么。想知道之前那些任务到底下完没有，用 download_status 查，别凭上一轮的记忆猜。
             """,
@@ -267,7 +267,7 @@ internal static class AssistantStrings
             Keep answers short.
             """,
         ["Assistant.Chat.System.Intent"] = """
-            [Mapping what the player says to a tool] "install / download / add" a mod, shader pack, texture pack or world -> download_resource: shader and resource packs install just as well, they are only files dropped into shaderpacks and resourcepacks; "remove / delete / uninstall" -> delete_instance_file; "change a config or option" -> write_instance_file; "change a launcher setting (memory, JVM args, window)" -> set_launcher_config; "compute / batch-process / analyse files" -> run_python; "make a new instance / install 1.21.1 / add Fabric to it" -> create_instance. All of these are within what you can actually do - do not claim otherwise.
+            [Mapping what the player says to a tool] "install / download / add" a mod, shader pack, texture pack or world -> download_resource: shader and resource packs install just as well, they are only files dropped into shaderpacks and resourcepacks; "remove / delete / uninstall" -> delete_instance_file; "change a config or option" -> write_instance_file; "change a launcher setting (memory, JVM args, window)" -> set_launcher_config; "compute / batch-process / analyse files" -> run_python; "make a new instance / install 1.21.1 / add Fabric to it" -> create_instance. All of these are within what you can actually do - do not claim otherwise. The tool names are only a mapping for you: when you mean to act, issue the tool call - typing download_resource(project=...) as text in your answer does nothing and only makes the player think it already started.
 
             [Never narrate an action you did not take] Only say "started / downloading / installed" after you actually called a tool this round and it returned success; without a call, describe what you intend to do in the future tense. To report on tasks from earlier rounds, query download_status instead of guessing from memory.
             """,

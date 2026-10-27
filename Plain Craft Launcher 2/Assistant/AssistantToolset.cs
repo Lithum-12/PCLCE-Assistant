@@ -100,11 +100,17 @@ internal sealed class AssistantToolset
                 "只读档", false);
         }
 
+        var asked = false;
         if (definition is not null && !_allowAllForRun &&
-            AssistantPermissions.NeedsApproval(PermissionMode, isAction) && !Approve(definition, args))
+            AssistantPermissions.NeedsApproval(PermissionMode, isAction))
         {
-            AddTrace($"拒绝 {definition.Name}");
-            return new AssistantToolOutcome(Refused(definition.Name, "用户在权限确认里拒绝了这次操作。"), "已拒绝", false);
+            asked = true;
+            if (!Approve(definition, args))
+            {
+                AddTrace($"拒绝 {definition.Name}");
+                return new AssistantToolOutcome(Refused(definition.Name, "用户在权限确认里拒绝了这次操作。"),
+                    "已拒绝", false);
+            }
         }
 
         var (content, note, failed) = call.Name switch
@@ -130,7 +136,13 @@ internal sealed class AssistantToolset
         var outcome = new AssistantToolOutcome(
             content.Length > ContentBudgetChars + 2000 ? content[..(ContentBudgetChars + 2000)] + "\n…" : content,
             note, failed);
-        if (isAction && !failed) ActionsExecuted++;
+        if (isAction && !failed)
+        {
+            ActionsExecuted++;
+            // 完全控制档不走确认框，也就走不到 Approve 里那条痕迹。不在这儿补一条，
+            // 它真的下载完，玩家和存档里都看不到任何证据——只能凭气泡措辞猜有没有调用工具
+            if (!asked) AddTrace($"执行 {Describe(call.Name).Item2}：{note}");
+        }
         return outcome;
     }
 
