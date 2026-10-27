@@ -68,15 +68,37 @@ public static class AssistantLocalReader
         return result;
     }
 
-    public static AssistantExcerpt? ReadLatestLog(string instancePath, int budgetChars = DefaultBudgetChars)
+    /// <param name="level">error / warn / info / all。默认只送 error 级别以上——
+    /// 崩溃诊断时几 MB 的 latest.log 里真正有用的就是那几十行错误和它们的堆栈。</param>
+    /// <param name="contextLines">每条命中前面再带几行上下文。</param>
+    /// <param name="windowChars">先从文件末尾读多少字进来筛：看得多、送得少。</param>
+    public static AssistantExcerpt? ReadLatestLog(string instancePath, string level = "error",
+        int contextLines = 1, int budgetChars = DefaultBudgetChars, int windowChars = 400_000)
     {
         var path = Path.Combine(instancePath, "logs", "latest.log");
         if (!new FileInfo(path).Exists) return null;
-        // 日志里有用的部分几乎都在末尾，整份读进来只会撑爆请求体
-        var window = ReadWindow(path, fromEnd: true, budgetChars);
+        var raw = AssistantLogFilter.Threshold(level) <= 0;
+        // level=all 时保持老行为：只取结尾那一截原文
+        var window = ReadWindow(path, fromEnd: true, raw ? budgetChars : windowChars);
         if (window is null) return null;
-        return new AssistantExcerpt(Relative(instancePath, path), window.Value.Text, window.Value.ReadChars,
-            window.Value.Partial);
+        var relative = Relative(instancePath, path);
+        if (raw)
+            return new AssistantExcerpt(relative, window.Value.Text, window.Value.ReadChars, window.Value.Partial);
+
+        var lines = window.Value.Text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        var result = AssistantLogFilter.Select(lines, level, contextLines, budgetChars);
+        if (result.Matched == 0)
+            return new AssistantExcerpt(relative,
+                $"（这份日志结尾的 {window.Value.ReadChars:N0} 字里没有 {level} 级别以上的记录。" +
+                "需要原文就再用 level=all 读一次。）", window.Value.ReadChars, window.Value.Partial);
+
+        var header = $"（{result.Total} 行里命中 {result.Matched} 行 " +
+                     $"{level} 级别以上的记录" +
+                     (result.CutByBudget
+                         ? "，预算有限，送出的是最近的若干行；更早的错误改用 read_crash_report 或 level=all 看）"
+                         : "）") + "\n";
+        return new AssistantExcerpt(relative, header + result.Text, window.Value.ReadChars,
+            window.Value.Partial || result.CutByBudget);
     }
 
     public static IReadOnlyList<string> ReadModFileNames(string instancePath, int maxItems = 300)
@@ -202,7 +224,8 @@ public static class AssistantLocalReader
         _ => $"{bytes / (1024.0 * 1024.0):F1} MB"
     };
 
-    private static (string Text, int ReadChars, bool Partial)? ReadWindow(string path, bool fromEnd, int maxChars)    {
+    private static (string Text, int ReadChars, bool Partial)? ReadWindow(string path, bool fromEnd, int maxChars)
+    {
         try
         {
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

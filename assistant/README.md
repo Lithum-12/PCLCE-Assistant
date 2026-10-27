@@ -15,7 +15,8 @@
 | `Plain Craft Launcher 2/Assistant/AssistantHooks.cs` | 启动注入：区域判定覆盖 + fork 私有字符串资源 |
 | `PCL.Core/Assistant/AssistantClient.cs` | OpenAI 兼容 `/chat/completions`：流式增量 + function calling，服务商拒绝 tools 时自动降级 |
 | `PCL.Core/Assistant/AssistantStream.cs` | SSE 分片累积：正文按序拼接，`tool_calls` 按 index 归并 |
-| `PCL.Core/Assistant/AssistantLocalReader.cs` | 实例文件提取：崩溃报告取头尾、日志只取尾部、mods 清单 |
+| `PCL.Core/Assistant/AssistantLocalReader.cs` | 实例文件提取：崩溃报告取头尾、日志先按级别筛、mods 清单 |
+| `PCL.Core/Assistant/AssistantLogFilter.cs` | 按级别筛游戏日志：认原版 / Forge / NeoForge / Fabric 各家行首，命中行连同后面的堆栈续行一起留下 |
 | `PCL.Core/Assistant/AssistantRedactor.cs` | 外发前脱敏：用户名与完整路径、IP、UUID、坐标、种子、账号名 |
 | `PCL.Core/Assistant/AssistantPermissions.cs` | 三档权限（只读 / 需要审批 / 完全控制）的取值与判定，Action 工具按档位决定挂不挂、要不要弹确认 |
 | `PCL.Core/Assistant/AssistantLoaders.cs` | 加载器名归一化（NeoForge / fabricmc / Minecraft Forge → 标准名），供下载筛选与卡片跳转共用 |
@@ -58,7 +59,7 @@ dotnet run --project "Plain Craft Launcher 2/Plain Craft Launcher 2.csproj" -c D
 
 - **M1**：fork 骨架与同步机制、区域限制旁路、聊天页与设置子页骨架。
 - **M2（已用真实密钥验证）**：`AssistantClient` 走 OpenAI 兼容 `/chat/completions` 流式读取；`AssistantProviders` 内置 DeepSeek / Kimi / 智谱 / 通义 / 豆包 / MiniMax / 硅基流动 / 自定义预设；设置页可选服务商，聊天页左下选实例、右下切模型。
-- **M3（已用真实密钥跑通工具往返与资源卡片）**：只读工具集 `read_crash_report` / `read_latest_log` / `list_mods` / `list_instance_files` / `read_instance_file` / `search_modrinth`（有 CurseForge 密钥时再加 `search_curseforge`），另有 `read_site` 走站点白名单（MC 百科、GitHub、ModpackIndex、Mojang 版本库、BMC API、Fabric、Forge、NeoForge、Quilt、LiteLoader、OptiFine、Modrinth、CurseForge），设置 → AI 助手 里逐个开关。页面最多 4 轮工具往返、本地内容 24000 字预算，回答末尾附一行"本次工具调用"痕迹说明实际外发了多少内容。脱敏默认开启，可在 工具与隐私 关闭。
+- **M3（已用真实密钥跑通工具往返与资源卡片）**：只读工具集 `read_crash_report` / `read_latest_log` / `list_mods` / `list_instance_files` / `read_instance_file` / `search_modrinth`（有 CurseForge 密钥时再加 `search_curseforge`），另有 `read_site` 走站点白名单（MC 百科、GitHub、ModpackIndex、Mojang 版本库、BMC API、Fabric、Forge、NeoForge、Quilt、LiteLoader、OptiFine、Modrinth、CurseForge），设置 → AI 助手 里逐个开关。页面最多 6 轮工具往返、本地内容 24000 字预算，回答末尾附一行"本次工具调用"痕迹说明实际外发了多少内容。脱敏默认开启，可在 工具与隐私 关闭。`read_latest_log` 默认只送 error 级别以上的行及其堆栈（实测 146 KB 的 Forge 1.20.1 服务端日志筛到 5.5 KB），要看原文用 `level=all`。
 - **对话里的资源卡片**：模型写出的 Modrinth / CurseForge 链接会被换成可点开的卡片（图标、下载量、更新时间、来源），点击进启动器自己的资源详情页。刻意没复用下载页的 `MyCompItem`——它内部点击逻辑要读 `pageCurrent.additional.Value`，从别的页面点会抛异常。
 - **配置与请求失败**改用上游 `MyHint` 警告框画在对话流里（`role=="hint"`，不进模型上下文），错误由 `AssistantErrors.Classify` 归成密钥无效 / 余额不足 / 频率额度 / 服务商错误 / 网络 / 请求被拒。
 - **依赖冲突分析**尚未做：M3 只把崩溃报告、日志与模组清单交给模型，本地没有做模组依赖/版本冲突的规则判定。

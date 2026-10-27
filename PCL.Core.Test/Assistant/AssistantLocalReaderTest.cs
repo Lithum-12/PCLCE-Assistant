@@ -56,13 +56,37 @@ public class AssistantLocalReaderTest
     {
         Write(Path.Combine(_root, "logs", "latest.log"), 'L', 20000);
 
-        var log = AssistantLocalReader.ReadLatestLog(_root, budgetChars: 1500);
+        var log = AssistantLocalReader.ReadLatestLog(_root, "all", budgetChars: 1500);
 
         Assert.IsNotNull(log);
         Assert.IsTrue(log.Text.EndsWith("TAIL-MARKER"), log.Text[^40..]);
         Assert.IsFalse(log.Text.Contains("HEAD-MARKER"));
         Assert.IsTrue(log.Truncated);
         Assert.IsTrue(log.Text.Length <= 1500);
+    }
+
+    [TestMethod]
+    public void ReadLatestLog_DefaultsToErrorLevelAndKeepsTheStackTrace()
+    {
+        var path = Path.Combine(_root, "logs", "latest.log");
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var builder = new System.Text.StringBuilder();
+        for (var i = 0; i < 500; i++) builder.AppendLine($"[12:00:{i % 60:00}] [main/INFO]: filler {i}");
+        builder.AppendLine("[12:30:00] [Render thread/ERROR]: Failed to start core");
+        builder.AppendLine("java.lang.RuntimeException: boom");
+        builder.AppendLine("\tat com.example.Thing.main(Thing.java:9)");
+        File.WriteAllText(path, builder.ToString());
+
+        var filtered = AssistantLocalReader.ReadLatestLog(_root);
+        var raw = AssistantLocalReader.ReadLatestLog(_root, "all", budgetChars: 1500);
+
+        StringAssert.Contains(filtered!.Text, "Failed to start core");
+        StringAssert.Contains(filtered.Text, "com.example.Thing.main");
+        Assert.IsFalse(filtered.Text.Contains("filler 123"));
+        Assert.IsTrue(filtered.Text.Length < 400, filtered.Text.Length.ToString());
+        // 原文模式照旧：只看结尾那一截，里面全是 filler
+        StringAssert.Contains(raw!.Text, "filler");
+        Assert.IsTrue(raw.Text.Length <= 1500);
     }
 
     [TestMethod]

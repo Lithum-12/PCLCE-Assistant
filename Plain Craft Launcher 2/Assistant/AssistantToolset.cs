@@ -110,7 +110,7 @@ internal sealed class AssistantToolset
         var (content, note, failed) = call.Name switch
         {
             "read_crash_report" => ReadCrashReports(ToInt(Args(args, "max_files"), 2)),
-            "read_latest_log" => ReadLatestLog(),
+            "read_latest_log" => ReadLatestLog(args),
             "list_mods" => ListMods(),
             "search_modrinth" => await SearchModrinthAsync(args, token),
             "search_curseforge" => await SearchCurseForgeAsync(args, token),
@@ -165,8 +165,13 @@ internal sealed class AssistantToolset
                 "读取当前实例最新的崩溃报告（已截断，默认 2 份）。不需要参数。",
                 [new AssistantToolParam("max_files", "可选，读取份数，1 到 3，默认 2")]),
             new("read_latest_log",
-                "读取当前实例 logs/latest.log 的结尾若干字符（已截断）。不需要参数。",
-                []),
+                "读取当前实例 logs/latest.log。默认只返回 error 级别以上的行连同其堆栈续行，" +
+                "所以一次能看过几十万字的日志却只占很少上下文；" +
+                "确实需要原始结尾时才用 level=all。",
+                [
+                    new AssistantToolParam("level", "可选，error（默认）/ warn / info / all"),
+                    new AssistantToolParam("context", "可选，每条命中前面再带几行上下文，0 到 5，默认 1")
+                ]),
             new("list_mods",
                 "列出当前实例 mods 目录里的文件名，并给出游戏版本。不需要参数。",
                 []),
@@ -325,16 +330,19 @@ internal sealed class AssistantToolset
         return (builder.ToString(), $"{FormatSize(sent)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
     }
 
-    private (string Content, string Note, bool Failed) ReadLatestLog()
+    private (string Content, string Note, bool Failed) ReadLatestLog(Dictionary<string, string> args)
     {
         if (_instance is null) return (NoInstance, "", false);
 
-        var log = AssistantLocalReader.ReadLatestLog(_instance.PathIndie);
+        var level = Args(args, "level");
+        var context = Clamp(ToInt(Args(args, "context"), 1), 0, 5);
+        var log = AssistantLocalReader.ReadLatestLog(_instance.PathIndie,
+            level.Length == 0 ? "error" : level, context);
         if (log is null)
             return ($"{_instance.PathIndie} 下的 logs/latest.log 不存在，这个实例可能还没成功启动过。", "无日志", false);
 
         var text = Protect(log.Text);
-        AddTrace($"latest.log 尾部 {FormatSize(text.Length)}{(log.Truncated ? "（已截断）" : "")}");
+        AddTrace($"latest.log 节选 {FormatSize(text.Length)}{(log.Truncated ? "（已截断）" : "")}");
         return (Header() + $"=== {log.Source}（读到 {log.RawChars} 字，送出 {text.Length} 字）===\n" + text,
             $"{FormatSize(text.Length)}{(Redacts ? "·已脱敏" : "·未脱敏")}", false);
     }
