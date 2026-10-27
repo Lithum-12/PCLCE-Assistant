@@ -9,16 +9,16 @@ public class AssistantRedactorTest
     [TestMethod]
     public void Redact_WindowsPath_HidesUserFolder()
     {
-        var text = AssistantRedactor.Redact(@"Caused: C:\Users\35320\.minecraft\mods\sodium-0.4.2.jar");
+        var text = AssistantRedactor.Redact(@"Caused: C:\Users\PlayerName\.minecraft\mods\sodium-0.4.2.jar");
         Assert.IsTrue(text.Contains(@"C:\Users\<用户>"), text);
-        Assert.IsFalse(text.Contains("35320"), text);
+        Assert.IsFalse(text.Contains("PlayerName"), text);
     }
 
     [TestMethod]
     public void Redact_ForwardSlashAndUnixHome_HideUserFolder()
     {
-        Assert.IsTrue(AssistantRedactor.Redact(@"C:/Users/Lithum/mods/a.jar").Contains(@"C:/Users/<用户>"));
-        Assert.IsTrue(AssistantRedactor.Redact("/home/lithum/.minecraft/logs").Contains("/home/<用户>"));
+        Assert.IsTrue(AssistantRedactor.Redact(@"C:/Users/PlayerName/mods/a.jar").Contains(@"C:/Users/<用户>"));
+        Assert.IsTrue(AssistantRedactor.Redact("/home/steve/.minecraft/logs").Contains("/home/<用户>"));
     }
 
     [TestMethod]
