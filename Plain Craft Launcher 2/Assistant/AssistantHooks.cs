@@ -100,6 +100,7 @@ internal static class AssistantStrings
         ["Assistant.Tool.read_instance_file"] = "读取实例文件",
         ["Assistant.Tool.read_site"] = "查阅站点",
         ["Assistant.Tool.download_status"] = "查看下载进度",
+        ["Assistant.Tool.offer_choices"] = "让玩家选方案",
         ["Assistant.Tool.download_resource"] = "下载资源",
         ["Assistant.Tool.write_instance_file"] = "写入实例文件",
         ["Assistant.Tool.delete_instance_file"] = "把实例文件放进回收站",
@@ -119,6 +120,8 @@ internal static class AssistantStrings
             """,
         ["Assistant.Chat.System.Intent"] = """
             【玩家的说法对应哪个工具】"装一个 / 下载 / 加个" mod、模组、光影包、材质包、世界 → download_resource：光影包和材质包一样能装，它们只是落到 shaderpacks、resourcepacks 目录里的文件；"删掉 / 移除 / 卸载" → delete_instance_file；"改配置 / 调选项" → write_instance_file；"改启动器设置（内存、JVM 参数、窗口）" → set_launcher_config；"算一下 / 批量处理 / 分析文件" → run_python；"建个新实例 / 装个 1.21.1 的游戏 / 顺便加个 Fabric" → create_instance。这些都算在你当前的能力范围内，不要再说自己做不到。工具名只是给你自己对号入座的：要动手就直接发起工具调用，不要在回答里写 download_resource(project=...) 这种文本，那什么也不会发生，只会让玩家以为已经在装了。
+
+            【要玩家做决定就调 offer_choices】把方案做成按钮交给玩家点（question + options，第一条填你推荐的方案），别在正文里列"1. 方案A 2. 方案B 要我装吗？"再等玩家自己打字回复。调完这一轮就收尾，玩家点选的那条会作为新发言回到你这里。
 
             【不许凭空描述动作】只有在这一轮真的调用过工具、并且工具返回成功之后，才能用"已经开始 / 正在下载 / 已经装好"这种说法；没调用工具就只用将来时写你打算做什么。想知道之前那些任务到底下完没有，用 download_status 查，别凭上一轮的记忆猜。
             """,
@@ -165,6 +168,9 @@ internal static class AssistantStrings
         ["Assistant.Approval.Title"] = "需要你的确认",
         ["Assistant.Approval.Content"] = "AI 请求执行：{0}\n参数：{1}\n当前权限档位是「需要审批」，允许吗？",
         ["Assistant.Approval.AllowAll"] = "本轮全部允许",
+        ["Assistant.Chat.Choice.Question"] = "要我怎么做？",
+        ["Assistant.Chat.Choice.Recommended"] = "推荐 · {0}",
+        ["Assistant.Chat.Choice.Other"] = "我自己说",
         ["Assistant.Chat.RoundsExhausted"] = "这一轮的工具调用次数已经用完，剩下的步骤没有执行。让它继续做，直接回一句\"继续\"即可。",
         ["Assistant.Chat.ClaimCorrection"] = "（系统提示）你刚才的回答说已经在下载或已经安装，但这一轮你没有调用过任何工具，也没有任何东西真的被执行。请重新回答：要么现在就去调用对应的工具，要么明确说还没开始、需要玩家点头后再做。不要重复刚才那段说法。",
         ["Assistant.Chat.AutoContinue"] = "（自动继续）你发起的任务已经全部结束：{0}。先用 list_instance_files 等只读工具核对实际结果，再继续下一步；没有可做的就明确说明并停下，不要凭空描述进度，也不要再发起新的下载。这一轮之后最多还能自动继续 {1} 次。",
@@ -249,6 +255,7 @@ internal static class AssistantStrings
         ["Assistant.Tool.read_instance_file"] = "Reading an instance file",
         ["Assistant.Tool.read_site"] = "Reading a website",
         ["Assistant.Tool.download_status"] = "Checking download progress",
+        ["Assistant.Tool.offer_choices"] = "Offering choices",
         ["Assistant.Tool.download_resource"] = "Downloading a resource",
         ["Assistant.Tool.write_instance_file"] = "Writing an instance file",
         ["Assistant.Tool.delete_instance_file"] = "Recycling an instance file",
@@ -268,6 +275,8 @@ internal static class AssistantStrings
             """,
         ["Assistant.Chat.System.Intent"] = """
             [Mapping what the player says to a tool] "install / download / add" a mod, shader pack, texture pack or world -> download_resource: shader and resource packs install just as well, they are only files dropped into shaderpacks and resourcepacks; "remove / delete / uninstall" -> delete_instance_file; "change a config or option" -> write_instance_file; "change a launcher setting (memory, JVM args, window)" -> set_launcher_config; "compute / batch-process / analyse files" -> run_python; "make a new instance / install 1.21.1 / add Fabric to it" -> create_instance. All of these are within what you can actually do - do not claim otherwise. The tool names are only a mapping for you: when you mean to act, issue the tool call - typing download_resource(project=...) as text in your answer does nothing and only makes the player think it already started.
+
+            [Use offer_choices when the player must decide] Hand the options over as buttons (question + options, with the one you recommend first) instead of listing "1. option A 2. option B - shall I install it?" and waiting for them to type a reply. End the turn after calling it; whatever they tap comes back to you as a new message.
 
             [Never narrate an action you did not take] Only say "started / downloading / installed" after you actually called a tool this round and it returned success; without a call, describe what you intend to do in the future tense. To report on tasks from earlier rounds, query download_status instead of guessing from memory.
             """,
@@ -315,6 +324,9 @@ internal static class AssistantStrings
         ["Assistant.Approval.Title"] = "Approval needed",
         ["Assistant.Approval.Content"] = "The assistant wants to run: {0}\nArguments: {1}\nYour permission tier is \"Ask first\" - allow it?",
         ["Assistant.Approval.AllowAll"] = "Allow all this round",
+        ["Assistant.Chat.Choice.Question"] = "What should I do?",
+        ["Assistant.Chat.Choice.Recommended"] = "Recommended · {0}",
+        ["Assistant.Chat.Choice.Other"] = "I'll say it myself",
         ["Assistant.Chat.RoundsExhausted"] = "This answer ran out of tool-call rounds, so the remaining steps were not executed. Reply \"go on\" and it will continue.",
         ["Assistant.Chat.ClaimCorrection"] = "(system note) Your previous answer claimed something was downloading or installed, but you called no tool this round and nothing actually ran. Answer again: either call the tool now, or say plainly that nothing has started yet and you need the player's go-ahead. Do not repeat the earlier claim.",
         ["Assistant.Chat.AutoContinue"] = "(auto continue) The tasks you started have all finished: {0}. Verify the real result with a read-only tool such as list_instance_files, then take the next step; if there is nothing left to do, say so and stop. Do not narrate progress you have not checked, and do not queue new downloads. Up to {1} more automatic continuations remain for this request.",

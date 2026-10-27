@@ -20,6 +20,18 @@
             </Grid>
         </local:MyCard>
 
+        <!--  要玩家拍板选哪个方案时顶掉输入框。规格照上游资源管理底部那条 CardSelect：
+              问题居中在顶上（ColorBrush2），下面一排 MyIconTextButton，按钮本身不加尺寸与边距。
+              面板用 WrapPanel：选项是模型写的整句话，比上游那几个两字动词长，窄窗口要能换行。  -->
+        <local:MyCard x:Name="CardChoice" Visibility="Collapsed" HasMouseAnimation="False">
+            <Grid>
+                <TextBlock x:Name="LabChoice" Text="" HorizontalAlignment="Center" VerticalAlignment="Top"
+                           Margin="9" Foreground="{DynamicResource ColorBrush2}" />
+                <WrapPanel x:Name="PanChoice" Orientation="Horizontal" Margin="5,28,5,5"
+                           HorizontalAlignment="Center" />
+            </Grid>
+        </local:MyCard>
+
         <local:MyCard x:Name="CardFooter" HasMouseAnimation="False" Margin="0,10,0,0">
             <Grid Margin="12,8,12,8" Height="28">
                 <local:MyIconTextButton x:Name="BtnInstance" HorizontalAlignment="Left" VerticalAlignment="Center"

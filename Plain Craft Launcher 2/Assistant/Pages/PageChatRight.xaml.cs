@@ -104,7 +104,12 @@ public partial class PageChatRight
     {
         var session = AssistantSessionStore.Current;
         var switched = !string.Equals(_renderedSessionId, session?.Id, StringComparison.Ordinal);
-        if (switched) _windowStart = -1; // 换会话回到尾部窗口，别把上一个会话展开的整段历史带过来
+        if (switched)
+        {
+            _windowStart = -1; // 换会话回到尾部窗口，别把上一个会话展开的整段历史带过来
+            InputBar.HideChoice(); // 选择栏属于上一个会话的那一轮回答，切走就该消失
+        }
+
         PanMessages.Children.Clear();
         _streamViewer = null;
         _streamStatus = null;
@@ -230,6 +235,8 @@ public partial class PageChatRight
         var answerIndex = AssistantSessionStore.AppendAssistantMessage(session, "");
         var cts = new CancellationTokenSource();
         _runs[session.Id] = cts;
+        // 新一轮开始了：上一轮留给玩家拍板的选项已经过期（自动继续、或者玩家自己打字都会走到这儿）
+        InputBar.HideChoice();
         // 只有第一次提问去要一个短标题；真正发出去要等这轮回答结束，见 finally
         var needsTitle = !session.TitleLocked && session.Messages.Count(m => m.Role == "user") == 1;
         if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
@@ -372,8 +379,16 @@ public partial class PageChatRight
             _streamIndex = -1;
             UpdateInputState();
             if (ReferenceEquals(AssistantSessionStore.Current, session)) RenderCurrentSession();
-            // 回答期间完成的下载会排在那儿等这一刻：本轮真的结束了，才决定要不要自动续
-            OnAssistantTasksReady();
+            // 模型这一轮把决定权交回给玩家：先让他选，选完才有下一轮。
+            // 排队等续的下载批次因此往后挪一次，不会丢（Ready 队列还在，下一轮结束时照样会排空）
+            var awaitingChoice = false;
+            if (toolset.PendingChoice is { } choice && !_runs.ContainsKey(session.Id) && !cts.IsCancellationRequested)
+            {
+                awaitingChoice = true;
+                InputBar.ShowChoice(choice, pick => _ = SendAsync(pick));
+            }
+
+            if (!awaitingChoice) OnAssistantTasksReady();
         }
     }
 

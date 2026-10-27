@@ -66,6 +66,9 @@ internal sealed class AssistantToolset
     /// <summary>这一次发送里真的执行成功过几个动作——用来核对模型说的"已经在下载"是不是真的。</summary>
     public int ActionsExecuted { get; private set; }
 
+    /// <summary>模型这一轮交给玩家拍板的选项；页面在回答结束后把它画成选择栏，取走即清空。</summary>
+    public AssistantChoiceSet? PendingChoice { get; private set; }
+
     private bool Redacts => Config.Assistant.RedactLocalContent;
 
     private static readonly Regex ScriptStyleRegex = new(@"(?is)<(script|style)[^>]*>.*?</\1>",
@@ -124,6 +127,7 @@ internal sealed class AssistantToolset
             "read_instance_file" => ReadInstanceFile(Args(args, "path")),
             "read_site" => await ReadSiteAsync(Args(args, "site"), Args(args, "path"), token),
             "download_status" => DownloadStatus(),
+            "offer_choices" => OfferChoices(args),
             "download_resource" => await AssistantActions.DownloadResource(_instance, args, token),
             "write_instance_file" => AssistantActions.WriteInstanceFile(_instance, args),
             "delete_instance_file" => AssistantActions.DeleteInstanceFile(_instance, args),
@@ -158,6 +162,7 @@ internal sealed class AssistantToolset
         "read_instance_file" => ("file-input", Lang.Text("Assistant.Tool.read_instance_file")),
         "read_site" => ("globe", Lang.Text("Assistant.Tool.read_site")),
         "download_status" => ("gauge", Lang.Text("Assistant.Tool.download_status")),
+        "offer_choices" => ("layout-list", Lang.Text("Assistant.Tool.offer_choices")),
         "download_resource" => ("download", Lang.Text("Assistant.Tool.download_resource")),
         "write_instance_file" => ("save", Lang.Text("Assistant.Tool.write_instance_file")),
         "delete_instance_file" => ("trash-2", Lang.Text("Assistant.Tool.delete_instance_file")),
@@ -218,6 +223,15 @@ internal sealed class AssistantToolset
         defs.Add(new("download_status",
             "查看启动器当前在下载/安装面板里的任务与状态（进行中 / 已完成 / 失败 / 已中止）。不需要参数。",
             []));
+
+        // 要玩家拍板时把方案做成按钮，代替"要我现在装吗？1. 装 A 2. 装 B"这种让玩家自己打字回复的写法
+        defs.Add(new("offer_choices",
+            "需要玩家在几个方案之间做决定时调用：把选项画成输入框位置的一排按钮，玩家点哪个就把哪个作为新的一条发言回给你。" +
+            "第一条按约定是你推荐的方案，界面会自动标上「推荐」。调用之后本轮就该收尾，不要替玩家选，也不要把选项再抄一遍正文里。",
+            [
+                new AssistantToolParam("question", "一句话说清玩家在选什么，例如「要我怎么做？」"),
+                new AssistantToolParam("options", "2 到 4 条方案，json 字符串数组，每条不超过 24 字，第一条是你推荐的")
+            ]));
 
         var allowed = AllowedIds();
         if (allowed.Count > 0)
@@ -627,6 +641,19 @@ internal sealed class AssistantToolset
         if (!Redacts) return text;
         string[] terms = [Environment.UserName, ProfileService.Current?.UserName ?? ""];
         return AssistantRedactor.Redact(text, terms.Where(t => !string.IsNullOrWhiteSpace(t)));
+    }
+
+    private (string Content, string Note, bool Failed) OfferChoices(Dictionary<string, string> args)
+    {
+        var choice = AssistantChoices.Parse(Args(args, "question"), Args(args, "options"));
+        if (choice is null)
+            return ("offer_choices 没有收到两条以上画得下来的选项，选择栏没有出来。" +
+                    "确实要玩家拍板就把选项重发一次，或者直接在回答里问。", "选项不足", true);
+
+        PendingChoice = choice;
+        AddTrace($"把 {choice.Options.Count} 个选项交给玩家");
+        return ($"已经把 {choice.Options.Count} 个选项显示在输入框位置（第一条标了推荐），等玩家点。" +
+                "本轮回答到此收尾：不要替玩家选，也不要写他已经选了哪个。", $"{choice.Options.Count} 个选项", false);
     }
 
     private void AddTrace(string note) => _trace.Add(Redacts ? note + "（已脱敏）" : note + "（未脱敏）");
